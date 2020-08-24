@@ -61,6 +61,21 @@ ControlFlowGraph CfgBuilder::Build( const cell_t* entry )
 				}
 				break;
 			}
+			case SMX_OP_HALT:
+			case SMX_OP_RETN:
+			{
+				// No edges to add
+				break;
+			}
+			default:
+			{
+				// Fall-through to next block
+				if( BasicBlock* bb = cfg_.FindBlockAt( next_leader ) )
+				{
+					curr_block->AddTarget( bb );
+				}
+				break;
+			}
 		}
 	}
 
