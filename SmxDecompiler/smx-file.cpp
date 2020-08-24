@@ -156,6 +156,8 @@ void SmxFile::ReadSection( const char* name, size_t offset, size_t size )
     else if( stricmp( name, "rtti.data" ) == 0 )      ReadRttiData( name, offset, size );
     else if( stricmp( name, "rtti.methods" ) == 0 )   ReadRttiMethods( name, offset, size );
     else if( stricmp( name, "rtti.natives" ) == 0 )   ReadRttiNatives( name, offset, size );
+    else if( stricmp( name, "rtti.classdefs" ) == 0 ) ReadRttiClassdefs( name, offset, size );
+    else if( stricmp( name, "rtti.fields" ) == 0 ) ReadRttiClassdefs( name, offset, size );
 }
 
 void SmxFile::ReadCode( const char* name, size_t offset, size_t size )
@@ -211,4 +213,12 @@ void SmxFile::ReadRttiNatives( const char* name, size_t offset, size_t size )
         ntv.signature.varargs = false;
         natives_.push_back( ntv );
     }
+}
+
+void SmxFile::ReadRttiClassdefs( const char* name, size_t offset, size_t size )
+{
+}
+
+void SmxFile::ReadRttiFields( const char* name, size_t offset, size_t size )
+{
 }

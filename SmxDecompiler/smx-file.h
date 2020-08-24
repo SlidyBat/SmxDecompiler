@@ -46,6 +46,8 @@ private:
 	void ReadRttiData( const char* name, size_t offset, size_t size );
 	void ReadRttiMethods( const char* name, size_t offset, size_t size );
 	void ReadRttiNatives( const char* name, size_t offset, size_t size );
+	void ReadRttiClassdefs( const char* name, size_t offset, size_t size );
+	void ReadRttiFields( const char* name, size_t offset, size_t size );
 private:
 	std::unique_ptr<char[]> image_;
 	char* stringtab_ = nullptr;
