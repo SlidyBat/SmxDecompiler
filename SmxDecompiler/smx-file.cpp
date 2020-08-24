@@ -108,6 +108,18 @@ struct smx_rtti_typeset {
     uint32_t signature;
 };
 
+struct smx_rtti_enumstruct {
+    uint32_t name;
+    uint32_t first_field;
+    uint32_t size;
+};
+
+struct smx_rtti_es_field {
+    uint32_t name;
+    uint32_t type_id;
+    uint32_t offset;
+};
+
 #if defined __GNUC__
 #    pragma pack()
 #else
@@ -157,28 +169,55 @@ SmxFile::SmxFile( const char* filename )
 
     stringtab_ = image_.get() + header.stringtab;
 
-    auto* sections = reinterpret_cast<const sp_file_section_t*>(image_.get() + sizeof( header ));
+    auto* sp_sections = reinterpret_cast<const sp_file_section_t*>(image_.get() + sizeof( header ));
+    sections_.reserve( header.sections );
     for( size_t i = 0; i < header.sections; i++ )
     {
-        const sp_file_section_t& section = sections[i];
-        ReadSection( stringtab_ + section.nameoffs, section.dataoffs, section.size );
+        const sp_file_section_t& sp_section = sp_sections[i];
+        SmxSection section;
+        section.name = stringtab_ + sp_section.nameoffs;
+        section.offset = sp_section.dataoffs;
+        section.size = sp_section.size;
+        sections_.push_back( section );
     }
+
+    ReadSections();
 }
 
-void SmxFile::ReadSection( const char* name, size_t offset, size_t size )
+SmxSection* SmxFile::GetSectionByName( const char* name )
 {
-    if( stricmp( name, ".code" ) == 0 )               ReadCode( name, offset, size );
-    else if( stricmp( name, ".data" ) == 0 )          ReadData( name, offset, size );
-    else if( stricmp( name, ".names" ) == 0 )         ReadNames( name, offset, size );
-    else if( stricmp( name, "rtti.data" ) == 0 )      ReadRttiData( name, offset, size );
-    else if( stricmp( name, "rtti.methods" ) == 0 )   ReadRttiMethods( name, offset, size );
-    else if( stricmp( name, "rtti.natives" ) == 0 )   ReadRttiNatives( name, offset, size );
-    else if( stricmp( name, "rtti.enums" ) == 0 )     ReadRttiEnums( name, offset, size );
-    else if( stricmp( name, "rtti.typedefs" ) == 0 )  ReadRttiTypeDefs( name, offset, size );
-    else if( stricmp( name, "rtti.typesets" ) == 0 )  ReadRttiTypeSets( name, offset, size );
-    else if( stricmp( name, "rtti.classdefs" ) == 0 ) ReadRttiClassdefs( name, offset, size );
-    else if( stricmp( name, "rtti.fields" ) == 0 )    ReadRttiClassdefs( name, offset, size );
+    for( SmxSection& section : sections_ )
+    {
+        if( stricmp( name, section.name ) == 0 )
+        {
+            return &section;
+        }
+    }
+    return nullptr;
 }
+
+#define READ_SECTION( sec_name, handler ) \
+    do { \
+        SmxSection* section = GetSectionByName( sec_name ); \
+        if( section ) handler( section->name, section->offset, section->size ); \
+    } while( false )
+void SmxFile::ReadSections()
+{
+    READ_SECTION( ".code",                  ReadCode );
+    READ_SECTION( ".data",                  ReadData );
+    READ_SECTION( ".names",                 ReadNames );
+    READ_SECTION( "rtti.data",              ReadRttiData );
+    READ_SECTION( "rtti.methods",           ReadRttiMethods );
+    READ_SECTION( "rtti.natives",           ReadRttiNatives );
+    READ_SECTION( "rtti.enums",             ReadRttiEnums );
+    READ_SECTION( "rtti.typedefs",          ReadRttiTypeDefs );
+    READ_SECTION( "rtti.typesets",          ReadRttiTypeSets );
+    READ_SECTION( "rtti.classdefs",         ReadRttiClassdefs );
+    READ_SECTION( "rtti.fields",            ReadRttiFields );
+    READ_SECTION( "rtti.enumstruct_fields", ReadRttiEnumStructFields );
+    READ_SECTION( "rtti.enumstructs",       ReadRttiEnumStructs );
+}
+#undef READ_SECTION
 
 void SmxFile::ReadCode( const char* name, size_t offset, size_t size )
 {
@@ -285,4 +324,45 @@ void SmxFile::ReadRttiClassdefs( const char* name, size_t offset, size_t size )
 
 void SmxFile::ReadRttiFields( const char* name, size_t offset, size_t size )
 {
+}
+
+void SmxFile::ReadRttiEnumStructs( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    enum_structs_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_enumstruct*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxEnumStruct es;
+        es.name = names_ + row->name;
+        if( i < rttihdr->row_count - 1 )
+        {
+            auto* next_row = reinterpret_cast<const smx_rtti_enumstruct*>( image_.get() + offset + rttihdr->header_size + (i + 1) * rttihdr->row_size );
+            es.num_fields = next_row->first_field - row->first_field;
+        }
+        else
+        {
+            es.num_fields = es_fields_.size() - row->first_field;
+        }
+        es.fields = &es_fields_[row->first_field];
+        es.size = row->size;
+        enum_structs_.push_back( es );
+    }
+}
+
+void SmxFile::ReadRttiEnumStructFields( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    es_fields_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_es_field*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxESField esf;
+        esf.name = names_ + row->name;
+        esf.type_id = row->type_id;
+        esf.offset = row->offset;
+        es_fields_.push_back( esf );
+    }
 }

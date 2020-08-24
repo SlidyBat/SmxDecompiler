@@ -5,6 +5,13 @@
 
 using cell_t = int32_t;
 
+struct SmxSection
+{
+	const char* name;
+	size_t offset;
+	size_t size;
+};
+
 struct SmxFunctionSignature
 {
 	int nargs;
@@ -43,6 +50,21 @@ struct SmxTypeSet
 	std::unique_ptr<SmxFunctionSignature[]> signatures;
 };
 
+struct SmxESField
+{
+	const char* name;
+	uint32_t type_id;
+	uint32_t offset;
+};
+
+struct SmxEnumStruct
+{
+	const char* name;
+	int num_fields;
+	SmxESField* fields;
+	uint32_t size;
+};
+
 class SmxFile
 {
 public:
@@ -58,12 +80,15 @@ public:
 	SmxTypeDef& type_def( size_t index ) { return typedefs_[index]; }
 	size_t num_type_sets() const { return typedefs_.size(); }
 	SmxTypeDef& type_set( size_t index ) { return typedefs_[index]; }
+	size_t num_enum_structs() const { return enum_structs_.size(); }
+	SmxEnumStruct& enum_struct( size_t index ) { return enum_structs_[index]; }
 
 
 	cell_t* code() { return code_; }
 	char* data() { return data_; }
 private:
-	void ReadSection( const char* name, size_t offset, size_t size );
+	SmxSection* GetSectionByName( const char* name );
+	void ReadSections();
 
 	void ReadCode( const char* name, size_t offset, size_t size );
 	void ReadData( const char* name, size_t offset, size_t size );
@@ -76,9 +101,12 @@ private:
 	void ReadRttiTypeSets( const char* name, size_t offset, size_t size );
 	void ReadRttiClassdefs( const char* name, size_t offset, size_t size );
 	void ReadRttiFields( const char* name, size_t offset, size_t size );
+	void ReadRttiEnumStructs( const char* name, size_t offset, size_t size );
+	void ReadRttiEnumStructFields( const char* name, size_t offset, size_t size );
 private:
 	std::unique_ptr<char[]> image_;
 	char* stringtab_ = nullptr;
+	std::vector<SmxSection> sections_;
 	cell_t* code_ = nullptr;
 	char* data_ = nullptr;
 	char* names_ = nullptr;
@@ -88,4 +116,6 @@ private:
 	std::vector<SmxEnum> enums_;
 	std::vector<SmxTypeDef> typedefs_;
 	std::vector<SmxTypeSet> typesets_;
+	std::vector<SmxESField> es_fields_;
+	std::vector<SmxEnumStruct> enum_structs_;
 };

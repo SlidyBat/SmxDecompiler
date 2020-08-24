@@ -3,15 +3,14 @@
 int main()
 {
 	SmxFile smx( "tests/test.smx" );
-	for( size_t i = 0; i < smx.num_type_sets(); i++ )
+	for( size_t i = 0; i < smx.num_enum_structs(); i++ )
 	{
-		auto& ts = smx.type_set( i );
-		printf( "Typeset: %s\n", ts.name );
-	}
-	for( size_t i = 0; i < smx.num_type_defs(); i++ )
-	{
-		auto& td = smx.type_def( i );
-		printf( "Typedef: %s\n", td.name );
+		auto& es = smx.enum_struct( i );
+		printf( "Enum: %s (size=%i)\n", es.name, es.size );
+		for( int field = 0; field < es.num_fields; field++ )
+		{
+			printf( "\tField: %s (offset=%i)\n", es.fields[field].name, es.fields[field].offset );
+		}
 	}
 
 	return 0;
