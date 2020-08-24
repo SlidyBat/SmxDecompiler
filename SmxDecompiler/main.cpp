@@ -3,10 +3,10 @@
 int main()
 {
 	SmxFile smx( "tests/test.smx" );
-	for( size_t i = 0; i < smx.num_functions(); i++ )
+	for( size_t i = 0; i < smx.num_natives(); i++ )
 	{
-		SmxFunction& func = smx.function( i );
-		printf( "Function: %s\n", func.name );
+		auto& ntv = smx.native( i );
+		printf( "Native: %s\n", ntv.name );
 	}
 
 	return 0;

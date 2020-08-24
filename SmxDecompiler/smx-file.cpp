@@ -86,6 +86,11 @@ struct smx_rtti_method {
     uint32_t signature;
 };
 
+struct smx_rtti_native {
+    uint32_t name;
+    uint32_t signature;
+};
+
 #if defined __GNUC__
 #    pragma pack()
 #else
@@ -150,6 +155,7 @@ void SmxFile::ReadSection( const char* name, size_t offset, size_t size )
     else if( stricmp( name, ".names" ) == 0 )         ReadNames( name, offset, size );
     else if( stricmp( name, "rtti.data" ) == 0 )      ReadRttiData( name, offset, size );
     else if( stricmp( name, "rtti.methods" ) == 0 )   ReadRttiMethods( name, offset, size );
+    else if( stricmp( name, "rtti.natives" ) == 0 )   ReadRttiNatives( name, offset, size );
 }
 
 void SmxFile::ReadCode( const char* name, size_t offset, size_t size )
@@ -180,14 +186,29 @@ void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
 
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
-        auto* method = reinterpret_cast<const smx_rtti_method*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
+        auto* row = reinterpret_cast<const smx_rtti_method*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
         SmxFunction func;
-        func.name = names_ + method->name;
-        func.pcode_start = code_ + method->pcode_start;
-        func.pcode_end = code_ + method->pcode_end;
+        func.name = names_ + row->name;
+        func.pcode_start = code_ + row->pcode_start;
+        func.pcode_end = code_ + row->pcode_end;
+        // TODO: Handle signature reading
         func.signature.nargs = 0;
         func.signature.varargs = false;
         functions_.push_back( func );
+    }
+}
 
+void SmxFile::ReadRttiNatives( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
+
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_native*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
+        SmxNative ntv;
+        ntv.name = names_ + row->name;
+        ntv.signature.nargs = 0;
+        ntv.signature.varargs = false;
+        natives_.push_back( ntv );
     }
 }
