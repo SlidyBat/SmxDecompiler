@@ -251,8 +251,8 @@ void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
         auto* row = reinterpret_cast<const smx_rtti_method*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
         SmxFunction func;
         func.name = names_ + row->name;
-        func.pcode_start = code_ + row->pcode_start;
-        func.pcode_end = code_ + row->pcode_end;
+        func.pcode_start = (cell_t*)((uintptr_t)code_ + row->pcode_start);
+        func.pcode_end = (cell_t*)((uintptr_t)code_ + row->pcode_end );
         // TODO: Handle signature reading
         func.signature.nargs = 0;
         func.signature.varargs = false;
