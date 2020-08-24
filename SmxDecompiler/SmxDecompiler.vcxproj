@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="smx-disasm.cpp" />
     <ClCompile Include="smx-file.cpp" />
     <ClCompile Include="third_party\zlib\adler32.c" />
     <ClCompile Include="third_party\zlib\compress.c" />
@@ -173,7 +174,9 @@
     <ClCompile Include="third_party\zlib\zutil.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="smx-disasm.h" />
     <ClInclude Include="smx-file.h" />
+    <ClInclude Include="smx-opcodes.h" />
     <ClInclude Include="third_party\zlib\crc32.h" />
     <ClInclude Include="third_party\zlib\deflate.h" />
     <ClInclude Include="third_party\zlib\gzguts.h" />
