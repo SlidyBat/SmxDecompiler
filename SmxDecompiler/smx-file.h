@@ -25,6 +25,11 @@ struct SmxNative
 	SmxFunctionSignature signature;
 };
 
+struct SmxEnum
+{
+	const char* name;
+};
+
 class SmxFile
 {
 public:
@@ -34,6 +39,8 @@ public:
 	SmxFunction& function( size_t index ) { return functions_[index]; }
 	size_t num_natives() const { return natives_.size(); }
 	SmxNative& native( size_t index ) { return natives_[index]; }
+	size_t num_enumerations() const { return enums_.size(); }
+	SmxEnum& enumeration( size_t index ) { return enums_[index]; }
 
 	cell_t* code() { return code_; }
 	char* data() { return data_; }
@@ -46,6 +53,7 @@ private:
 	void ReadRttiData( const char* name, size_t offset, size_t size );
 	void ReadRttiMethods( const char* name, size_t offset, size_t size );
 	void ReadRttiNatives( const char* name, size_t offset, size_t size );
+	void ReadRttiEnums( const char* name, size_t offset, size_t size );
 	void ReadRttiClassdefs( const char* name, size_t offset, size_t size );
 	void ReadRttiFields( const char* name, size_t offset, size_t size );
 private:
@@ -57,4 +65,5 @@ private:
 	char* rtti_data_ = nullptr;
 	std::vector<SmxFunction> functions_;
 	std::vector<SmxNative> natives_;
+	std::vector<SmxEnum> enums_;
 };

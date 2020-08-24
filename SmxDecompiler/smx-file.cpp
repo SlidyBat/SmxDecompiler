@@ -91,6 +91,13 @@ struct smx_rtti_native {
     uint32_t signature;
 };
 
+struct smx_rtti_enum {
+    uint32_t name;
+    uint32_t reserved0;
+    uint32_t reserved1;
+    uint32_t reserved2;
+};
+
 #if defined __GNUC__
 #    pragma pack()
 #else
@@ -156,8 +163,9 @@ void SmxFile::ReadSection( const char* name, size_t offset, size_t size )
     else if( stricmp( name, "rtti.data" ) == 0 )      ReadRttiData( name, offset, size );
     else if( stricmp( name, "rtti.methods" ) == 0 )   ReadRttiMethods( name, offset, size );
     else if( stricmp( name, "rtti.natives" ) == 0 )   ReadRttiNatives( name, offset, size );
+    else if( stricmp( name, "rtti.enums" ) == 0 )     ReadRttiEnums( name, offset, size );
     else if( stricmp( name, "rtti.classdefs" ) == 0 ) ReadRttiClassdefs( name, offset, size );
-    else if( stricmp( name, "rtti.fields" ) == 0 ) ReadRttiClassdefs( name, offset, size );
+    else if( stricmp( name, "rtti.fields" ) == 0 )    ReadRttiClassdefs( name, offset, size );
 }
 
 void SmxFile::ReadCode( const char* name, size_t offset, size_t size )
@@ -186,6 +194,7 @@ void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
 {
     auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
 
+    functions_.reserve( rttihdr->row_count );
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
         auto* row = reinterpret_cast<const smx_rtti_method*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
@@ -204,6 +213,7 @@ void SmxFile::ReadRttiNatives( const char* name, size_t offset, size_t size )
 {
     auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
 
+    natives_.reserve( rttihdr->row_count );
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
         auto* row = reinterpret_cast<const smx_rtti_native*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
@@ -212,6 +222,20 @@ void SmxFile::ReadRttiNatives( const char* name, size_t offset, size_t size )
         ntv.signature.nargs = 0;
         ntv.signature.varargs = false;
         natives_.push_back( ntv );
+    }
+}
+
+void SmxFile::ReadRttiEnums( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
+
+    enums_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_enum*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
+        SmxEnum enm;
+        enm.name = names_ + row->name;
+        enums_.push_back( enm );
     }
 }
 
