@@ -98,6 +98,16 @@ struct smx_rtti_enum {
     uint32_t reserved2;
 };
 
+struct smx_rtti_typedef {
+    uint32_t name;
+    uint32_t type_id;
+};
+
+struct smx_rtti_typeset {
+    uint32_t name;
+    uint32_t signature;
+};
+
 #if defined __GNUC__
 #    pragma pack()
 #else
@@ -164,6 +174,8 @@ void SmxFile::ReadSection( const char* name, size_t offset, size_t size )
     else if( stricmp( name, "rtti.methods" ) == 0 )   ReadRttiMethods( name, offset, size );
     else if( stricmp( name, "rtti.natives" ) == 0 )   ReadRttiNatives( name, offset, size );
     else if( stricmp( name, "rtti.enums" ) == 0 )     ReadRttiEnums( name, offset, size );
+    else if( stricmp( name, "rtti.typedefs" ) == 0 )  ReadRttiTypeDefs( name, offset, size );
+    else if( stricmp( name, "rtti.typesets" ) == 0 )  ReadRttiTypeSets( name, offset, size );
     else if( stricmp( name, "rtti.classdefs" ) == 0 ) ReadRttiClassdefs( name, offset, size );
     else if( stricmp( name, "rtti.fields" ) == 0 )    ReadRttiClassdefs( name, offset, size );
 }
@@ -236,6 +248,34 @@ void SmxFile::ReadRttiEnums( const char* name, size_t offset, size_t size )
         SmxEnum enm;
         enm.name = names_ + row->name;
         enums_.push_back( enm );
+    }
+}
+
+void SmxFile::ReadRttiTypeDefs( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    typedefs_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_typedef*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxTypeDef td;
+        td.name = names_ + row->name;
+        typedefs_.push_back( td );
+    }
+}
+
+void SmxFile::ReadRttiTypeSets( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    typesets_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_typeset*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxTypeSet ts;
+        ts.name = names_ + row->name;
+        typesets_.push_back( std::move( ts ) );
     }
 }
 
