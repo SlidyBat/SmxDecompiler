@@ -84,8 +84,10 @@ public:
 	SmxEnumStruct& enum_struct( size_t index ) { return enum_structs_[index]; }
 
 
-	cell_t* code() { return code_; }
-	char* data() { return data_; }
+	cell_t* code( size_t addr = 0 ) const { return (cell_t*)((uintptr_t)code_ + addr); }
+	size_t code_size() const { return code_size_; }
+	cell_t* data( size_t addr = 0 ) const { return (cell_t*)((uintptr_t)data_ + addr); }
+	size_t data_size() const { return data_size_; }
 private:
 	SmxSection* GetSectionByName( const char* name );
 	void ReadSections();
@@ -108,7 +110,9 @@ private:
 	char* stringtab_ = nullptr;
 	std::vector<SmxSection> sections_;
 	cell_t* code_ = nullptr;
+	size_t code_size_ = 0;
 	char* data_ = nullptr;
+	size_t data_size_ = 0;
 	char* names_ = nullptr;
 	char* rtti_data_ = nullptr;
 	std::vector<SmxFunction> functions_;

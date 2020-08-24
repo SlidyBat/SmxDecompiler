@@ -57,6 +57,9 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="smx-file.cpp" />
     <ClCompile Include="smx-disasm.cpp" />
+    <ClCompile Include="cfg.cpp" />
+    <ClCompile Include="cfg-builder.cpp" />
+    <ClCompile Include="smx-opcodes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="third_party\zlib\crc32.h">
@@ -95,5 +98,7 @@
     <ClInclude Include="smx-file.h" />
     <ClInclude Include="smx-opcodes.h" />
     <ClInclude Include="smx-disasm.h" />
+    <ClInclude Include="cfg.h" />
+    <ClInclude Include="cfg-builder.h" />
   </ItemGroup>
 </Project>

@@ -223,12 +223,14 @@ void SmxFile::ReadCode( const char* name, size_t offset, size_t size )
 {
     auto* codehdr = reinterpret_cast<const sp_file_code_t*>(image_.get() + offset);
     code_ = reinterpret_cast<cell_t*>( image_.get() + offset + codehdr->code );
+    code_size_ = codehdr->codesize;
 }
 
 void SmxFile::ReadData( const char* name, size_t offset, size_t size )
 {
     auto* datahdr = reinterpret_cast<const sp_file_data_t*>(image_.get() + offset);
     data_ = image_.get() + offset + datahdr->data;
+    data_size_ = datahdr->datasize;
 }
 
 void SmxFile::ReadNames( const char* name, size_t offset, size_t size )
