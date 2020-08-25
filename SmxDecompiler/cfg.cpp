@@ -3,14 +3,12 @@
 #include "smx-disasm.h"
 #include <algorithm>
 
-BasicBlock::BasicBlock( const cell_t* start )
+BasicBlock::BasicBlock( const ControlFlowGraph& cfg, const cell_t* start )
 	:
 	start_( start ),
-	end_( nullptr )
-{
-	static int bb_id = 0;
-	id_ = bb_id++;
-}
+	end_( nullptr ),
+	cfg_( &cfg )
+{}
 
 void BasicBlock::AddTarget( BasicBlock* bb )
 {
@@ -23,9 +21,34 @@ void BasicBlock::SetEnd( const cell_t* addr )
 	end_ = addr;
 }
 
+bool BasicBlock::Contains( const cell_t* addr ) const
+{
+	if( end_ == nullptr )
+	{
+		// We don't know the range of this block yet, just check if it matches the start
+		return addr == start_;
+	}
+	return addr >= start_ && addr < end_;
+}
+
+bool BasicBlock::IsBackEdge( size_t index ) const
+{
+	return out_edges_[index]->id_ < id_;
+}
+
+bool BasicBlock::IsVisited() const
+{
+	return epoch_ == cfg_->epoch();
+}
+
+void BasicBlock::SetVisited()
+{
+	epoch_ = cfg_->epoch();
+}
+
 BasicBlock* ControlFlowGraph::NewBlock( const cell_t* start )
 {
-	blocks_.emplace_back( start );
+	blocks_.emplace_back( *this, start );
 	return &blocks_.back();
 }
 
@@ -39,4 +62,36 @@ BasicBlock* ControlFlowGraph::FindBlockAt( const cell_t* addr )
 		}
 	}
 	return nullptr;
+}
+
+void ControlFlowGraph::ComputeOrdering()
+{
+	ordered_blocks_.reserve( blocks_.size() );
+	for( BasicBlock& bb : blocks_ )
+	{
+		ordered_blocks_.push_back( &bb );
+	}
+
+	NewEpoch();
+	VisitPostOrderAndSetId( EntryBlock(), 1 );
+	std::sort( ordered_blocks_.begin(), ordered_blocks_.end(), []( const BasicBlock* a, const BasicBlock* b ) {
+		return a->id() < b->id();
+	} );
+}
+
+int ControlFlowGraph::VisitPostOrderAndSetId( BasicBlock& bb, size_t po_number )
+{
+	bb.SetVisited();
+	for( size_t out = 0; out < bb.num_out_edges(); out++ )
+	{
+		BasicBlock& successor = *bb.out_edge( out );
+		if( successor.IsVisited() )
+		{
+			continue;
+		}
+		po_number = VisitPostOrderAndSetId( successor, po_number );
+	}
+	
+	bb.id_ = (num_blocks() + 1) - po_number; // Set ID to RPO number
+	return po_number + 1;
 }

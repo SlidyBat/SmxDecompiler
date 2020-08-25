@@ -79,6 +79,8 @@ ControlFlowGraph CfgBuilder::Build( const cell_t* entry )
 		}
 	}
 
+	cfg_.ComputeOrdering();
+
 	return std::move( cfg_ );
 }
 
