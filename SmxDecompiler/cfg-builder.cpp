@@ -183,7 +183,7 @@ void CfgBuilder::MarkLeaders( const cell_t* entry )
 
 	if( last_arg_offset >= 12 )
 	{
-		cfg_.SetNumArgs( ( last_arg_offset - 12 ) / 4 );
+		cfg_.SetNumArgs( ( last_arg_offset - 12 ) / 4 + 1 );
 	}
 }
 
