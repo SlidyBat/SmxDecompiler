@@ -60,7 +60,7 @@ struct SmxESField
 struct SmxEnumStruct
 {
 	const char* name;
-	int num_fields;
+	size_t num_fields;
 	SmxESField* fields;
 	uint32_t size;
 };

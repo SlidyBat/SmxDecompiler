@@ -156,6 +156,9 @@
   <ItemGroup>
     <ClCompile Include="cfg-builder.cpp" />
     <ClCompile Include="cfg.cpp" />
+    <ClCompile Include="il-cfg.cpp" />
+    <ClCompile Include="il-disasm.cpp" />
+    <ClCompile Include="lifter.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="smx-disasm.cpp" />
     <ClCompile Include="smx-file.cpp" />
@@ -179,6 +182,10 @@
   <ItemGroup>
     <ClInclude Include="cfg-builder.h" />
     <ClInclude Include="cfg.h" />
+    <ClInclude Include="il-cfg.h" />
+    <ClInclude Include="il-disasm.h" />
+    <ClInclude Include="il.h" />
+    <ClInclude Include="lifter.h" />
     <ClInclude Include="smx-disasm.h" />
     <ClInclude Include="smx-file.h" />
     <ClInclude Include="smx-opcodes.h" />

@@ -79,7 +79,7 @@ void ControlFlowGraph::ComputeOrdering()
 	} );
 }
 
-int ControlFlowGraph::VisitPostOrderAndSetId( BasicBlock& bb, size_t po_number )
+size_t ControlFlowGraph::VisitPostOrderAndSetId( BasicBlock& bb, size_t po_number )
 {
 	bb.SetVisited();
 	for( size_t out = 0; out < bb.num_out_edges(); out++ )
@@ -92,6 +92,6 @@ int ControlFlowGraph::VisitPostOrderAndSetId( BasicBlock& bb, size_t po_number )
 		po_number = VisitPostOrderAndSetId( successor, po_number );
 	}
 	
-	bb.id_ = (num_blocks() + 1) - po_number; // Set ID to RPO number
+	bb.id_ = num_blocks() - po_number; // Set ID to RPO index
 	return po_number + 1;
 }

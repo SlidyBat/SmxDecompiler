@@ -101,6 +101,8 @@ void CfgBuilder::MarkLeaders( const cell_t* entry )
 
 	assert( entry[0] == SMX_OP_PROC );
 
+	int last_arg_offset = 0;
+
 	std::vector<const cell_t*> work_list;
 	work_list.push_back( NextInstruction( entry ) ); // Start after initial PROC
 	while( !work_list.empty() )
@@ -111,6 +113,19 @@ void CfgBuilder::MarkLeaders( const cell_t* entry )
 		while( !done && instr < code_end_ )
 		{
 			auto op = (SmxOpcode)instr[0];
+			const cell_t* params = instr + 1;
+			auto& info = SmxInstrInfo::Get( op );
+
+			// Check if any args are referenced
+			for( size_t param = 0; param < info.num_params; param++ )
+			{
+				if( info.params[param] == SmxParam::STACK )
+				{
+					cell_t offset = params[param];
+					last_arg_offset = std::max( last_arg_offset, offset );
+				}
+			}
+
 			switch( op )
 			{
 				case SMX_OP_JUMP:
@@ -164,6 +179,11 @@ void CfgBuilder::MarkLeaders( const cell_t* entry )
 
 			instr = NextInstruction( instr );
 		}
+	}
+
+	if( last_arg_offset >= 12 )
+	{
+		cfg_.SetNumArgs( ( last_arg_offset - 12 ) / 4 );
 	}
 }
 

@@ -60,6 +60,9 @@
     <ClCompile Include="cfg.cpp" />
     <ClCompile Include="cfg-builder.cpp" />
     <ClCompile Include="smx-opcodes.cpp" />
+    <ClCompile Include="il-cfg.cpp" />
+    <ClCompile Include="lifter.cpp" />
+    <ClCompile Include="il-disasm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="third_party\zlib\crc32.h">
@@ -100,5 +103,9 @@
     <ClInclude Include="smx-disasm.h" />
     <ClInclude Include="cfg.h" />
     <ClInclude Include="cfg-builder.h" />
+    <ClInclude Include="il.h" />
+    <ClInclude Include="lifter.h" />
+    <ClInclude Include="il-cfg.h" />
+    <ClInclude Include="il-disasm.h" />
   </ItemGroup>
 </Project>

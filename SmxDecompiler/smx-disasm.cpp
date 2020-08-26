@@ -12,7 +12,7 @@ std::string SmxDisassembler::DisassembleInstr( const cell_t* instr )
 		ss << " ";
 		for( int param = 1; param <= info.num_params; param++ )
 		{
-			ss << std::hex << instr[param];
+			ss << instr[param];
 			if( param != info.num_params )
 			{
 				ss << ", ";
