@@ -20,8 +20,13 @@ private:
 	const SmxFile* smx_;
 	ILControlFlowGraph ilcfg_;
 
-	std::vector<std::vector<ILNode*>> block_stacks_;
-	std::vector<ILNode*>* stack_;
-	ILNode* pri_;
-	ILNode* alt_;
+	struct AbstractExprStack
+	{
+		std::vector<ILNode*> stack;
+		ILNode* pri;
+		ILNode* alt;
+	};
+
+	std::vector<AbstractExprStack> block_stacks_;
+	AbstractExprStack* expr_stack_;
 };

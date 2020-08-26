@@ -6,9 +6,6 @@
 
 ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 {
-	pri_ = nullptr;
-	alt_ = nullptr;
-
 	ilcfg_.SetNumArgs( cfg.nargs() );
 
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
@@ -30,28 +27,31 @@ ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 
 void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 {
-	stack_ = &block_stacks_[ilbb.id()];
-	for( size_t i = 0; i < ilbb.num_in_edges(); i++ )
-	{
-		ILBlock* pred = ilbb.in_edge( i );
-		
-		// No back edges
-		if( pred->id() >= ilbb.id() )
-		{
-			continue;
-		}
-
-		if( stack_->empty() )
-		{
-			*stack_ = block_stacks_[pred->id()];
-		}
-	}
+	expr_stack_ = &block_stacks_[ilbb.id()];
+	ILNode*& pri = expr_stack_->pri;
+	ILNode*& alt = expr_stack_->alt;
 
 	for( size_t i = 0; i < bb.num_out_edges(); i++ )
 	{
 		BasicBlock* out = bb.out_edge( i );
 		ILBlock& ilout = ilcfg_.block( out->id() );
 		ilbb.AddTarget( &ilout );
+	}
+
+	for( size_t i = 0; i < bb.num_in_edges(); i++ )
+	{
+		BasicBlock* in = bb.in_edge( i );
+
+		// No back edges
+		if( in->id() >= bb.id() )
+		{
+			continue;
+		}
+
+		if( expr_stack_->stack.empty() )
+		{
+			*expr_stack_ = block_stacks_[in->id()];
+		}
 	}
 
 	const cell_t* instr = bb.start();
@@ -106,7 +106,9 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 			}
 			case SMX_OP_HEAP:
-				alt_ = new ILHeapVar( params[0] );
+				alt = new ILHeapVar( params[0] );
+				break;
+			case SMX_OP_FILL:
 				break;
 
 			case SMX_OP_PUSH:
@@ -190,24 +192,24 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 
 			case SMX_OP_PUSH_PRI:
-				Push( pri_ );
+				Push( pri );
 				break;
 			case SMX_OP_PUSH_ALT:
-				Push( alt_ );
+				Push( alt );
 				break;
 
 			case SMX_OP_POP_PRI:
-				pri_ = Pop();
+				pri = Pop();
 				break;
 			case SMX_OP_POP_ALT:
-				alt_ = Pop();
+				alt = Pop();
 				break;
 
 			case SMX_OP_CONST_PRI:
-				pri_ = new ILConst( params[0] );
+				pri = new ILConst( params[0] );
 				break;
 			case SMX_OP_CONST_ALT:
-				alt_ = new ILConst( params[0] );
+				alt = new ILConst( params[0] );
 				break;
 			case SMX_OP_CONST:
 				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), new ILConst( params[1] ) ) );
@@ -217,50 +219,50 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 
 			case SMX_OP_LOAD_PRI:
-				pri_ = new ILLoad( new ILGlobalVar( params[0] ) );
+				pri = new ILLoad( new ILGlobalVar( params[0] ) );
 				break;
 			case SMX_OP_LOAD_ALT:
-				alt_ = new ILLoad( new ILGlobalVar( params[0] ) );
+				alt = new ILLoad( new ILGlobalVar( params[0] ) );
 				break;
 			case SMX_OP_LOAD_BOTH:
-				pri_ = new ILLoad( new ILGlobalVar( params[0] ) );
-				alt_ = new ILLoad( new ILGlobalVar( params[1] ) );
+				pri = new ILLoad( new ILGlobalVar( params[0] ) );
+				alt = new ILLoad( new ILGlobalVar( params[1] ) );
 				break;
 			case SMX_OP_LOAD_S_PRI:
-				pri_ = new ILLoad( new ILLocalVar( params[0] ) );
+				pri = new ILLoad( new ILLocalVar( params[0] ) );
 				break;
 			case SMX_OP_LOAD_S_ALT:
-				alt_ = new ILLoad( new ILLocalVar( params[0] ) );
+				alt = new ILLoad( new ILLocalVar( params[0] ) );
 				break;
 			case SMX_OP_LOAD_S_BOTH:
-				pri_ = new ILLoad( new ILLocalVar( params[0] ) );
-				alt_ = new ILLoad( new ILLocalVar( params[1] ) );
+				pri = new ILLoad( new ILLocalVar( params[0] ) );
+				alt = new ILLoad( new ILLocalVar( params[1] ) );
 				break;
 			case SMX_OP_LOAD_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( pri_ );
+				ILVar* var = dynamic_cast<ILVar*>( pri );
 				assert( var );
-				pri_ = new ILLoad( var );
+				pri = new ILLoad( var );
 				break;
 			}
 
 			case SMX_OP_STOR_PRI:
-				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), pri_ ) );
+				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), pri ) );
 				break;
 			case SMX_OP_STOR_ALT:
-				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), alt_ ) );
+				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), alt ) );
 				break;
 			case SMX_OP_STOR_S_PRI:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), pri_ ) );
+				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), pri ) );
 				break;
 			case SMX_OP_STOR_S_ALT:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), alt_ ) );
+				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), alt ) );
 				break;
 			case SMX_OP_STOR_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( alt_ );
+				ILVar* var = dynamic_cast<ILVar*>( alt );
 				assert( var );
-				ilbb.Add( new ILStore( var, pri_ ) );
+				ilbb.Add( new ILStore( var, pri ) );
 				break;
 			}
 
@@ -279,47 +281,47 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			
 			case SMX_OP_LODB_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( pri_ );
+				ILVar* var = dynamic_cast<ILVar*>( pri );
 				assert( var );
-				pri_ = new ILLoad( var, params[0] );
+				pri = new ILLoad( var, params[0] );
 				break;
 			}
 			case SMX_OP_STRB_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( alt_ );
+				ILVar* var = dynamic_cast<ILVar*>( alt );
 				assert( var );
-				ilbb.Add( new ILStore( var, pri_, params[0] ) );
+				ilbb.Add( new ILStore( var, pri, params[0] ) );
 				break;
 			}
 
 			case SMX_OP_LIDX:
 			{
-				ILVar* arr = dynamic_cast<ILVar*>( alt_ );
+				ILVar* arr = dynamic_cast<ILVar*>( alt );
 				assert( arr );
-				auto* elem = new ILArrayElementVar( arr, pri_ );
+				auto* elem = new ILArrayElementVar( arr, pri );
 				ilbb.Add( new ILLoad( elem ) );
 				break;
 			}
 			case SMX_OP_IDXADDR:
 			{
-				ILVar* arr = dynamic_cast<ILVar*>( alt_ );
+				ILVar* arr = dynamic_cast<ILVar*>( alt );
 				assert( arr );
-				pri_ = new ILArrayElementVar( arr, pri_ );
+				pri = new ILArrayElementVar( arr, pri );
 				break;
 			}
 
 			case SMX_OP_ADDR_PRI:
-				pri_ = new ILLocalVar( params[0] );
+				pri = new ILLocalVar( params[0] );
 				break;
 			case SMX_OP_ADDR_ALT:
-				alt_ = new ILLocalVar( params[0] );
+				alt = new ILLocalVar( params[0] );
 				break;
 
 			case SMX_OP_ZERO_PRI:
-				pri_ = new ILConst( 0 );
+				pri = new ILConst( 0 );
 				break;
 			case SMX_OP_ZERO_ALT:
-				alt_ = new ILConst( 0 );
+				alt = new ILConst( 0 );
 				break;
 			case SMX_OP_ZERO:
 				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), new ILConst( 0 ) ) );
@@ -329,26 +331,26 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 
 			case SMX_OP_MOVE_PRI:
-				pri_ = alt_;
+				pri = alt;
 				break;
 			case SMX_OP_MOVE_ALT:
-				alt_ = pri_;
+				alt = pri;
 				break;
 			case SMX_OP_XCHG:
-				std::swap( pri_, alt_ );
+				std::swap( pri, alt );
 				break;
 			case SMX_OP_SWAP_PRI:
-				std::swap( pri_, stack_->back() );
+				std::swap( pri, expr_stack_->stack.back() );
 				break;
 			case SMX_OP_SWAP_ALT:
-				std::swap( alt_, stack_->back() );
+				std::swap( alt, expr_stack_->stack.back() );
 				break;
 
 			case SMX_OP_INC_PRI:
-				pri_ = new ILUnary( pri_, ILUnary::INC );
+				pri = new ILUnary( pri, ILUnary::INC );
 				break;
 			case SMX_OP_INC_ALT:
-				alt_ = new ILUnary( alt_, ILUnary::INC );
+				alt = new ILUnary( alt, ILUnary::INC );
 				break;
 			case SMX_OP_INC:
 			{
@@ -364,16 +366,16 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 			case SMX_OP_INC_I:
 			{
-				auto* var = dynamic_cast<ILGlobalVar*>( pri_ );
+				auto* var = dynamic_cast<ILGlobalVar*>( pri );
 				assert( var );
 				ilbb.Add( new ILStore( var, new ILUnary( new ILLoad( var ), ILUnary::INC ) ) );
 				break;
 			}
 			case SMX_OP_DEC_PRI:
-				pri_ = new ILUnary( pri_, ILUnary::DEC );
+				pri = new ILUnary( pri, ILUnary::DEC );
 				break;
 			case SMX_OP_DEC_ALT:
-				alt_ = new ILUnary( alt_, ILUnary::DEC );
+				alt = new ILUnary( alt, ILUnary::DEC );
 				break;
 			case SMX_OP_DEC:
 			{
@@ -389,203 +391,213 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 			case SMX_OP_DEC_I:
 			{
-				auto* var = dynamic_cast<ILGlobalVar*>( pri_ );
+				auto* var = dynamic_cast<ILGlobalVar*>( pri );
 				assert( var );
 				ilbb.Add( new ILStore( var, new ILUnary( new ILLoad( var ), ILUnary::DEC ) ) );
 				break;
 			}
 			case SMX_OP_SHL:
-				pri_ = new ILBinary( pri_, ILBinary::SHL, alt_ );
+				pri = new ILBinary( pri, ILBinary::SHL, alt );
 				break;
 			case SMX_OP_SHR:
-				pri_ = new ILBinary( pri_, ILBinary::SHR, alt_ );
+				pri = new ILBinary( pri, ILBinary::SHR, alt );
 				break;
 			case SMX_OP_SSHR:
-				pri_ = new ILBinary( pri_, ILBinary::SSHR, alt_ );
+				pri = new ILBinary( pri, ILBinary::SSHR, alt );
 				break;
 			case SMX_OP_SHL_C_PRI:
-				pri_ = new ILBinary( pri_, ILBinary::SHL, new ILConst( params[0] ) );
+				pri = new ILBinary( pri, ILBinary::SHL, new ILConst( params[0] ) );
 				break;
 			case SMX_OP_SHL_C_ALT:
-				alt_ = new ILBinary( alt_, ILBinary::SHL, new ILConst( params[0] ) );
+				alt = new ILBinary( alt, ILBinary::SHL, new ILConst( params[0] ) );
 				break;
 			case SMX_OP_SMUL:
-				pri_ = new ILBinary( pri_, ILBinary::MUL, alt_ );
+				pri = new ILBinary( pri, ILBinary::MUL, alt );
 				break;
 			case SMX_OP_SMUL_C:
-				pri_ = new ILBinary( pri_, ILBinary::MUL, new ILConst( params[0] ) );
+				pri = new ILBinary( pri, ILBinary::MUL, new ILConst( params[0] ) );
 				break;
 			case SMX_OP_SDIV:
 			{
-				ILNode* dividend = pri_;
-				ILNode* divisor = alt_;
-				pri_ = new ILBinary( dividend, ILBinary::DIV, divisor );
-				alt_ = new ILBinary( dividend, ILBinary::MOD, divisor );
+				ILNode* dividend = pri;
+				ILNode* divisor = alt;
+				pri = new ILBinary( dividend, ILBinary::DIV, divisor );
+				alt = new ILBinary( dividend, ILBinary::MOD, divisor );
 				break;
 			}
 			case SMX_OP_SDIV_ALT:
 			{
-				ILNode* dividend = alt_;
-				ILNode* divisor = pri_;
-				pri_ = new ILBinary( dividend, ILBinary::DIV, divisor );
-				alt_ = new ILBinary( dividend, ILBinary::MOD, divisor );
+				ILNode* dividend = alt;
+				ILNode* divisor = pri;
+				pri = new ILBinary( dividend, ILBinary::DIV, divisor );
+				alt = new ILBinary( dividend, ILBinary::MOD, divisor );
 				break;
 			}
 			case SMX_OP_ADD:
-				pri_ = new ILBinary( pri_, ILBinary::ADD, alt_ );
+				pri = new ILBinary( pri, ILBinary::ADD, alt );
 				break;
 			case SMX_OP_ADD_C:
-				pri_ = new ILBinary( pri_, ILBinary::ADD, new ILConst( params[0] ) );
+			{
+				// add.c is also used to offset into arrays/enum-structs
+				if( auto* var = dynamic_cast<ILVar*>(pri) )
+				{
+					pri = new ILArrayElementVar( var, new ILConst( params[0] / 4 ) );
+				}
+				else
+				{
+					pri = new ILBinary( pri, ILBinary::ADD, new ILConst( params[0] ) );
+				}
 				break;
+			}
 			case SMX_OP_SUB:
-				pri_ = new ILBinary( pri_, ILBinary::SUB, alt_ );
+				pri = new ILBinary( pri, ILBinary::SUB, alt );
 				break;
 			case SMX_OP_SUB_ALT:
-				pri_ = new ILBinary( alt_, ILBinary::SUB, pri_ );
+				pri = new ILBinary( alt, ILBinary::SUB, pri );
 				break;
 			case SMX_OP_AND:
-				pri_ = new ILBinary( pri_, ILBinary::AND, alt_ );
+				pri = new ILBinary( pri, ILBinary::AND, alt );
 				break;
 			case SMX_OP_OR:
-				pri_ = new ILBinary( pri_, ILBinary::OR, alt_ );
+				pri = new ILBinary( pri, ILBinary::OR, alt );
 				break;
 			case SMX_OP_XOR:
-				pri_ = new ILBinary( pri_, ILBinary::OR, alt_ );
+				pri = new ILBinary( pri, ILBinary::OR, alt );
 				break;
 			case SMX_OP_NOT:
-				pri_ = new ILUnary( pri_, ILUnary::NOT );
+				pri = new ILUnary( pri, ILUnary::NOT );
 				break;
 			case SMX_OP_NEG:
-				pri_ = new ILUnary( pri_, ILUnary::NEG );
+				pri = new ILUnary( pri, ILUnary::NEG );
 				break;
 			case SMX_OP_INVERT:
-				pri_ = new ILUnary( pri_, ILUnary::INVERT );
+				pri = new ILUnary( pri, ILUnary::INVERT );
 				break;
 
 			case SMX_OP_EQ:
-				pri_ = new ILBinary( pri_, ILBinary::EQ, alt_ );
+				pri = new ILBinary( pri, ILBinary::EQ, alt );
 				break;
 			case SMX_OP_NEQ:
-				pri_ = new ILBinary( pri_, ILBinary::NEQ, alt_ );
+				pri = new ILBinary( pri, ILBinary::NEQ, alt );
 				break;
 			case SMX_OP_SLESS:
-				pri_ = new ILBinary( pri_, ILBinary::SLESS, alt_ );
+				pri = new ILBinary( pri, ILBinary::SLESS, alt );
 				break;
 			case SMX_OP_SLEQ:
-				pri_ = new ILBinary( pri_, ILBinary::SLEQ, alt_ );
+				pri = new ILBinary( pri, ILBinary::SLEQ, alt );
 				break;
 			case SMX_OP_SGRTR:
-				pri_ = new ILBinary( pri_, ILBinary::SGRTR, alt_ );
+				pri = new ILBinary( pri, ILBinary::SGRTR, alt );
 				break;
 			case SMX_OP_SGEQ:
-				pri_ = new ILBinary( pri_, ILBinary::SGEQ, alt_ );
+				pri = new ILBinary( pri, ILBinary::SGEQ, alt );
 				break;
 
 			case SMX_OP_EQ_C_PRI:
-				pri_ = new ILBinary( pri_, ILBinary::EQ, new ILConst( params[0] ) );
+				pri = new ILBinary( pri, ILBinary::EQ, new ILConst( params[0] ) );
 				break;
 			case SMX_OP_EQ_C_ALT:
-				pri_ = new ILBinary( alt_, ILBinary::EQ, new ILConst( params[0] ) );
+				pri = new ILBinary( alt, ILBinary::EQ, new ILConst( params[0] ) );
 				break;
 
 			case SMX_OP_FABS:
-				pri_ = new ILUnary( Pop(), ILUnary::FABS );
+				pri = new ILUnary( Pop(), ILUnary::FABS );
 				break;
 			case SMX_OP_FLOAT:
-				pri_ = new ILUnary( Pop(), ILUnary::FLOAT );
+				pri = new ILUnary( Pop(), ILUnary::FLOAT );
 				break;
 			case SMX_OP_FLOATADD:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATADD, right );
+				pri = new ILBinary( left, ILBinary::FLOATADD, right );
 				break;
 			}
 			case SMX_OP_FLOATSUB:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATSUB, right );
+				pri = new ILBinary( left, ILBinary::FLOATSUB, right );
 				break;
 			}
 			case SMX_OP_FLOATMUL:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATMUL, right );
+				pri = new ILBinary( left, ILBinary::FLOATMUL, right );
 				break;
 			}
 			case SMX_OP_FLOATDIV:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATDIV, right );
+				pri = new ILBinary( left, ILBinary::FLOATDIV, right );
 				break;
 			}
 			case SMX_OP_RND_TO_NEAREST:
-				pri_ = new ILUnary( Pop(), ILUnary::RND_TO_NEAREST );
+				pri = new ILUnary( Pop(), ILUnary::RND_TO_NEAREST );
 				break;
 			case SMX_OP_RND_TO_FLOOR:
-				pri_ = new ILUnary( Pop(), ILUnary::RND_TO_FLOOR );
+				pri = new ILUnary( Pop(), ILUnary::RND_TO_FLOOR );
 				break;
 			case SMX_OP_RND_TO_CEIL:
-				pri_ = new ILUnary( Pop(), ILUnary::RND_TO_CEIL );
+				pri = new ILUnary( Pop(), ILUnary::RND_TO_CEIL );
 				break;
 			case SMX_OP_RND_TO_ZERO:
-				pri_ = new ILUnary( Pop(), ILUnary::RND_TO_ZERO );
+				pri = new ILUnary( Pop(), ILUnary::RND_TO_ZERO );
 				break;
 
 			case SMX_OP_FLOATCMP:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATCMP, right );
+				pri = new ILBinary( left, ILBinary::FLOATCMP, right );
 				break;
 			}
 			case SMX_OP_FLOAT_GT:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATGT, right );
+				pri = new ILBinary( left, ILBinary::FLOATGT, right );
 				break;
 			}
 			case SMX_OP_FLOAT_GE:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATGE, right );
+				pri = new ILBinary( left, ILBinary::FLOATGE, right );
 				break;
 			}
 			case SMX_OP_FLOAT_LE:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATLE, right );
+				pri = new ILBinary( left, ILBinary::FLOATLE, right );
 				break;
 			}
 			case SMX_OP_FLOAT_LT:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATLT, right );
+				pri = new ILBinary( left, ILBinary::FLOATLT, right );
 				break;
 			}
 			case SMX_OP_FLOAT_EQ:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATEQ, right );
+				pri = new ILBinary( left, ILBinary::FLOATEQ, right );
 				break;
 			}
 			case SMX_OP_FLOAT_NE:
 			{
 				ILNode* left = Pop();
 				ILNode* right = Pop();
-				pri_ = new ILBinary( left, ILBinary::FLOATNE, right );
+				pri = new ILBinary( left, ILBinary::FLOATNE, right );
 				break;
 			}
 			case SMX_OP_FLOAT_NOT:
-				pri_ = new ILUnary( Pop(), ILUnary::FLOATNOT );
+				pri = new ILUnary( Pop(), ILUnary::FLOATNOT );
 				break;
 
 
@@ -599,13 +611,13 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 					call->AddArg( Pop() );
 				}
 				ilbb.Add( call );
-				pri_ = call;
+				pri = call;
 				break;
 			}
 			case SMX_OP_SYSREQ_C:
 			{
-				pri_ = new ILNative( params[0] );
-				ilbb.Add( pri_ );
+				pri = new ILNative( params[0] );
+				ilbb.Add( pri );
 			}
 			case SMX_OP_SYSREQ_N:
 			{
@@ -617,7 +629,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 					ntv->AddArg( Pop() );
 				}
 				ilbb.Add( ntv );
-				pri_ = ntv;
+				pri = ntv;
 				break;
 			}
 
@@ -625,28 +637,28 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				ilbb.Add( new ILJump( ilcfg_.FindBlockAt( params[0] ) ) );
 				break;
 			case SMX_OP_JZER:
-				handle_jmp( new ILBinary( pri_, ILBinary::EQ, new ILConst( 0 ) ) );
+				handle_jmp( new ILBinary( pri, ILBinary::EQ, new ILConst( 0 ) ) );
 				break;
 			case SMX_OP_JNZ:
-				handle_jmp( new ILBinary( pri_, ILBinary::NEQ, new ILConst( 0 ) ) );
+				handle_jmp( new ILBinary( pri, ILBinary::NEQ, new ILConst( 0 ) ) );
 				break;
 			case SMX_OP_JEQ:
-				handle_jmp( new ILBinary( pri_, ILBinary::EQ, alt_ ) );
+				handle_jmp( new ILBinary( pri, ILBinary::EQ, alt ) );
 				break;
 			case SMX_OP_JNEQ:
-				handle_jmp( new ILBinary( pri_, ILBinary::NEQ, alt_ ) );
+				handle_jmp( new ILBinary( pri, ILBinary::NEQ, alt ) );
 				break;
 			case SMX_OP_JSLESS:
-				handle_jmp( new ILBinary( pri_, ILBinary::SLESS, alt_ ) );
+				handle_jmp( new ILBinary( pri, ILBinary::SLESS, alt ) );
 				break;
 			case SMX_OP_JSLEQ:
-				handle_jmp( new ILBinary( pri_, ILBinary::SLEQ, alt_ ) );
+				handle_jmp( new ILBinary( pri, ILBinary::SLEQ, alt ) );
 				break;
 			case SMX_OP_JSGRTR:
-				handle_jmp( new ILBinary( pri_, ILBinary::SGRTR, alt_ ) );
+				handle_jmp( new ILBinary( pri, ILBinary::SGRTR, alt ) );
 				break;
 			case SMX_OP_JSGEQ:
-				handle_jmp( new ILBinary( pri_, ILBinary::SGEQ, alt_ ) );
+				handle_jmp( new ILBinary( pri, ILBinary::SGEQ, alt ) );
 				break;
 
 			case SMX_OP_RETN:
@@ -669,32 +681,32 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 void PcodeLifter::Push( ILNode* node )
 {
-	stack_->push_back( node );
+	expr_stack_->stack.push_back( node );
 }
 
 ILNode* PcodeLifter::Pop()
 {
-	if( stack_->empty() )
+	if( expr_stack_->stack.empty() )
 	{
 		assert( 0 );
 		return nullptr;
 	}
 
-	ILNode* top = stack_->back();
-	stack_->pop_back();
+	ILNode* top = expr_stack_->stack.back();
+	expr_stack_->stack.pop_back();
 	return top;
 }
 
 ILNode* PcodeLifter::GetFrameValue( int offset )
 {
-	assert( stack_ );
+	assert( expr_stack_ );
 	if( offset > 0 )
 	{
 		// Probably an arg
-		return ( *stack_ )[offset / 4];
+		return expr_stack_->stack[offset / 4];
 	}
 	else
 	{
-		return ( *stack_ )[(-offset - (12 + ilcfg_.nargs()*4)) / 4];
+		return expr_stack_->stack[(-offset - (12 + ilcfg_.nargs()*4)) / 4];
 	}
 }
