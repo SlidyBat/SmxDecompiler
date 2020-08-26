@@ -24,8 +24,8 @@ public:
 	ILNode* node( size_t index ) const { return nodes_[index]; }
 	size_t num_in_edges() const { return in_edges_.size(); }
 	ILBlock* in_edge( size_t index ) const { return in_edges_[index]; }
-	size_t num_out_edges() const { return in_edges_.size(); }
-	ILBlock* out_edge( size_t index ) const { return in_edges_[index]; }
+	size_t num_out_edges() const { return out_edges_.size(); }
+	ILBlock* out_edge( size_t index ) const { return out_edges_[index]; }
 
 	bool IsBackEdge( size_t index ) { return out_edges_[index]->id_ < id_; }
 private:
