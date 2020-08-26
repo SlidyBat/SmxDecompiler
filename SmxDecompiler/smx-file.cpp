@@ -184,6 +184,18 @@ SmxFile::SmxFile( const char* filename )
     ReadSections();
 }
 
+SmxFunction* SmxFile::FindFunctionByName( const char* func_name )
+{
+    for( SmxFunction& func : functions_ )
+    {
+        if( strcmp( func.name, func_name ) == 0 )
+        {
+            return &func;
+        }
+    }
+    return nullptr;
+}
+
 SmxSection* SmxFile::GetSectionByName( const char* name )
 {
     for( SmxSection& section : sections_ )

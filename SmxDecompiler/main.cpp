@@ -7,12 +7,12 @@
 int main()
 {
 	SmxFile smx( "tests/test.smx" );
-	const SmxFunction& func = smx.function( 0x13 );
-	printf( "Function %s\n", func.name );
-	puts( SmxDisassembler::DisassembleFunction( func ).c_str() );
+	const SmxFunction* func = smx.FindFunctionByName( "OnPluginStart" );
+	printf( "Function %s\n", func->name );
+	puts( SmxDisassembler::DisassembleFunction( *func ).c_str() );
 
 	CfgBuilder builder( smx );
-	ControlFlowGraph cfg = builder.Build( func.pcode_start );
+	ControlFlowGraph cfg = builder.Build( func->pcode_start );
 	//for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	//{
 	//	const BasicBlock& bb = cfg.block( i );

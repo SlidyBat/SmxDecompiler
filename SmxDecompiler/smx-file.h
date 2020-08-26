@@ -70,6 +70,8 @@ class SmxFile
 public:
 	SmxFile( const char* filename );
 
+	SmxFunction* FindFunctionByName( const char* func_name );
+
 	size_t num_functions() const { return functions_.size(); }
 	SmxFunction& function( size_t index ) { return functions_[index]; }
 	size_t num_natives() const { return natives_.size(); }
