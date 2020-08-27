@@ -4,6 +4,8 @@
 #include "il-cfg.h"
 #include "cfg.h"
 
+class ILLocalVar;
+
 class PcodeLifter
 {
 public:
@@ -13,9 +15,11 @@ public:
 private:
 	void LiftBlock( BasicBlock& bb, ILBlock& ilbb );
 
-	void Push( ILNode* node );
-	ILNode* Pop();
-	ILNode* GetFrameValue( int offset );
+	ILLocalVar* Push( ILNode* value );
+	ILLocalVar* Pop();
+	ILLocalVar* GetFrameVar( int offset );
+	ILNode* GetFrameVal( int offset );
+	void SetFrameVal( int offset, ILNode* val );
 	class ILTempVar* MakeTemp();
 private:
 	const SmxFile* smx_;
@@ -23,7 +27,7 @@ private:
 
 	struct AbstractExprStack
 	{
-		std::vector<ILNode*> stack;
+		std::vector<ILLocalVar*> stack;
 		ILNode* pri;
 		ILNode* alt;
 	};

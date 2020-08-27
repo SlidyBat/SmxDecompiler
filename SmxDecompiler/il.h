@@ -177,16 +177,20 @@ class ILVar : public ILNode
 class ILLocalVar : public ILVar
 {
 public:
-	ILLocalVar( int stack_offset )
+	ILLocalVar( int stack_offset, ILNode* value )
 		:
-		stack_offset_( stack_offset )
+		stack_offset_( stack_offset ),
+		value_( value )
 	{}
 
+	void SetValue( ILNode* val ) { value_ = val; }
+	ILNode* value() const { return value_; }
 	int stack_offset() const { return stack_offset_; }
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitLocalVar( this ); }
 private:
 	int stack_offset_;
+	ILNode* value_;
 };
 
 class ILGlobalVar : public ILVar

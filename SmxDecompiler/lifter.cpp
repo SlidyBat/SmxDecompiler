@@ -105,12 +105,12 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			{
 				for( int i = 0; i < ilcfg_.nargs(); i++ )
 				{
-					Push( new ILLocalVar( 12 + i * 4 ) );
+					Push( nullptr );
 				}
 
-				Push( new ILConst( ilcfg_.nargs() ) ); // Number of args
-				Push( new ILLocalVar( 4 ) ); // Frame pointer
-				Push( new ILLocalVar( 0 ) ); // Heap pointer
+				Push( nullptr ); // Number of args
+				Push( nullptr ); // Frame pointer
+				Push( nullptr ); // Heap pointer
 
 				break;
 			}
@@ -122,8 +122,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				{
 					for( cell_t i = 0; i < -amount / 4; i++ )
 					{
-						auto* var = new ILLocalVar( i * 4 );
-						Push( var );
+						ilbb.Add( Push( nullptr ) );
 					}
 				}
 				else
@@ -137,6 +136,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 			case SMX_OP_HEAP:
 				alt = new ILHeapVar( params[0] );
+				ilbb.Add( alt );
 				break;
 			case SMX_OP_FILL:
 				break;
@@ -155,7 +155,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 				for( size_t i = 0; i < nvals; i++ )
 				{
-					Push( new ILLoad( new ILGlobalVar( params[i] ) ) );
+					ilbb.Add( Push( new ILLoad( new ILGlobalVar( params[i] ) ) ) );
 				}
 
 				break;
@@ -175,7 +175,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 				for( size_t i = 0; i < nvals; i++ )
 				{
-					Push( new ILLoad( new ILLocalVar( params[i] ) ) );
+					ilbb.Add( Push( new ILLoad( GetFrameVar( params[i] ) ) ) );
 				}
 
 				break;
@@ -195,7 +195,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 				for( size_t i = 0; i < nvals; i++ )
 				{
-					Push( new ILConst( params[i] ) );
+					ilbb.Add( Push( new ILConst( params[i] ) ) );
 				}
 
 				break;
@@ -215,24 +215,24 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 				for( size_t i = 0; i < nvals; i++ )
 				{
-					Push( new ILLocalVar( params[i] ) );
+					ilbb.Add( Push( GetFrameVar( params[i] ) ) );
 				}
 
 				break;
 			}
 
 			case SMX_OP_PUSH_PRI:
-				Push( pri );
+				ilbb.Add( Push( pri ) );
 				break;
 			case SMX_OP_PUSH_ALT:
-				Push( alt );
+				ilbb.Add( Push( alt ) );
 				break;
 
 			case SMX_OP_POP_PRI:
-				pri = Pop();
+				pri = Pop()->value();
 				break;
 			case SMX_OP_POP_ALT:
-				alt = Pop();
+				alt = Pop()->value();
 				break;
 
 			case SMX_OP_CONST_PRI:
@@ -245,7 +245,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), new ILConst( params[1] ) ) );
 				break;
 			case SMX_OP_CONST_S:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), new ILConst( params[1] ) ) );
+				ilbb.Add( new ILStore( GetFrameVar( params[0] ), new ILConst( params[1] ) ) );
 				break;
 
 			case SMX_OP_LOAD_PRI:
@@ -259,14 +259,14 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				alt = new ILLoad( new ILGlobalVar( params[1] ) );
 				break;
 			case SMX_OP_LOAD_S_PRI:
-				pri = new ILLoad( new ILLocalVar( params[0] ) );
+				pri = new ILLoad( GetFrameVar( params[0] ) );
 				break;
 			case SMX_OP_LOAD_S_ALT:
-				alt = new ILLoad( new ILLocalVar( params[0] ) );
+				alt = new ILLoad( GetFrameVar( params[0] ) );
 				break;
 			case SMX_OP_LOAD_S_BOTH:
-				pri = new ILLoad( new ILLocalVar( params[0] ) );
-				alt = new ILLoad( new ILLocalVar( params[1] ) );
+				pri = new ILLoad( GetFrameVar( params[0] ) );
+				alt = new ILLoad( GetFrameVar( params[1] ) );
 				break;
 			case SMX_OP_LOAD_I:
 			{
@@ -283,10 +283,10 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), alt ) );
 				break;
 			case SMX_OP_STOR_S_PRI:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), pri ) );
+				ilbb.Add( new ILStore( GetFrameVar( params[0] ), pri ) );
 				break;
 			case SMX_OP_STOR_S_ALT:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), alt ) );
+				ilbb.Add( new ILStore( GetFrameVar( params[0] ), alt ) );
 				break;
 			case SMX_OP_STOR_I:
 			{
@@ -297,16 +297,16 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 
 			case SMX_OP_LREF_S_PRI:
-				pri = new ILLoad( new ILLocalVar( params[0] ) );
+				pri = new ILLoad( GetFrameVar( params[0] ) );
 				break;
 			case SMX_OP_LREF_S_ALT:
-				alt = new ILLoad( new ILLocalVar( params[0] ) );
+				alt = new ILLoad( GetFrameVar( params[0] ) );
 				break;
 			case SMX_OP_SREF_S_PRI:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), pri ) );
+				ilbb.Add( new ILStore( GetFrameVar( params[0] ), pri ) );
 				break;
 			case SMX_OP_SREF_S_ALT:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), alt ) );
+				ilbb.Add( new ILStore( GetFrameVar( params[0] ), alt ) );
 				break;
 			
 			case SMX_OP_LODB_I:
@@ -341,10 +341,10 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 
 			case SMX_OP_ADDR_PRI:
-				pri = new ILLocalVar( params[0] );
+				pri = GetFrameVar( params[0] );
 				break;
 			case SMX_OP_ADDR_ALT:
-				alt = new ILLocalVar( params[0] );
+				alt = GetFrameVar( params[0] );
 				break;
 
 			case SMX_OP_ZERO_PRI:
@@ -357,7 +357,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				ilbb.Add( new ILStore( new ILGlobalVar( params[0] ), new ILConst( 0 ) ) );
 				break;
 			case SMX_OP_ZERO_S:
-				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), new ILConst( 0 ) ) );
+				ilbb.Add( new ILStore( GetFrameVar( params[0] ), new ILConst( 0 ) ) );
 				break;
 
 			case SMX_OP_MOVE_PRI:
@@ -370,11 +370,19 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				std::swap( pri, alt );
 				break;
 			case SMX_OP_SWAP_PRI:
-				std::swap( pri, expr_stack_->stack.back() );
+			{
+				ILLocalVar* top = Pop();
+				ilbb.Add( Push( pri ) );
+				pri = top->value();
 				break;
+			}
 			case SMX_OP_SWAP_ALT:
-				std::swap( alt, expr_stack_->stack.back() );
+			{
+				ILLocalVar* top = Pop();
+				ilbb.Add( Push( alt ) );
+				alt = top->value();
 				break;
+			}
 
 			case SMX_OP_INC_PRI:
 				pri = new ILUnary( pri, ILUnary::INC );
@@ -390,7 +398,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 			case SMX_OP_INC_S:
 			{
-				auto* var = new ILLocalVar( params[0] );
+				auto* var = GetFrameVar( params[0] );
 				ilbb.Add( new ILStore( var, new ILUnary( new ILLoad( var ), ILUnary::INC ) ) );
 				break;
 			}
@@ -415,7 +423,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 			case SMX_OP_DEC_S:
 			{
-				auto* var = new ILLocalVar( params[0] );
+				ILLocalVar* var = GetFrameVar( params[0] );
 				ilbb.Add( new ILStore( var, new ILUnary( new ILLoad( var ), ILUnary::DEC ) ) );
 				break;
 			}
@@ -633,7 +641,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 			case SMX_OP_CALL:
 			{
-				auto* nargs = dynamic_cast<ILConst*>( Pop() );
+				auto* nargs = dynamic_cast<ILConst*>( Pop()->value() );
 				assert( nargs );
 				auto* call = new ILCall( params[0] );
 				for( cell_t i = 0; i < nargs->value(); i++ )
@@ -656,7 +664,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				auto* ntv = new ILNative( native_index );
 				for( cell_t i = 0; i < nargs; i++ )
 				{
-					ntv->AddArg( Pop() );
+					ntv->AddArg( Pop()->value() );
 				}
 				ilbb.Add( ntv );
 				pri = ntv;
@@ -709,12 +717,14 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 	}
 }
 
-void PcodeLifter::Push( ILNode* node )
+ILLocalVar* PcodeLifter::Push( ILNode* value )
 {
-	expr_stack_->stack.push_back( node );
+	int offset = (ilcfg_.nargs() + 3) - (int)expr_stack_->stack.size() - 1;
+	expr_stack_->stack.push_back( new ILLocalVar( offset * 4, value ) );
+	return expr_stack_->stack.back();
 }
 
-ILNode* PcodeLifter::Pop()
+ILLocalVar* PcodeLifter::Pop()
 {
 	if( expr_stack_->stack.empty() )
 	{
@@ -722,23 +732,26 @@ ILNode* PcodeLifter::Pop()
 		return nullptr;
 	}
 
-	ILNode* top = expr_stack_->stack.back();
+	ILLocalVar* top = expr_stack_->stack.back();
 	expr_stack_->stack.pop_back();
 	return top;
 }
 
-ILNode* PcodeLifter::GetFrameValue( int offset )
+ILLocalVar* PcodeLifter::GetFrameVar( int offset )
 {
 	assert( expr_stack_ );
-	if( offset > 0 )
-	{
-		// Probably an arg
-		return expr_stack_->stack[offset / 4];
-	}
-	else
-	{
-		return expr_stack_->stack[(-offset - (12 + ilcfg_.nargs()*4)) / 4];
-	}
+	
+	return expr_stack_->stack[(ilcfg_.nargs() + 3) - 1 - offset/4];
+}
+
+ILNode* PcodeLifter::GetFrameVal( int offset )
+{
+	return GetFrameVar( offset )->value();
+}
+
+void PcodeLifter::SetFrameVal( int offset, ILNode* val )
+{
+	GetFrameVar( offset )->SetValue( val );
 }
 
 ILTempVar* PcodeLifter::MakeTemp()
