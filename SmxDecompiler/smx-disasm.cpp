@@ -11,7 +11,8 @@ std::string SmxDisassembler::DisassembleInstr( const cell_t* instr )
 {
 	const auto& info = SmxInstrInfo::Get( instr[0] );
 	std::ostringstream ss;
-	ss << std::hex << instr << '\t' << info.mnem;
+	cell_t addr = (cell_t)( (intptr_t)instr - (intptr_t)smx_->code() );
+	ss << std::hex << addr << '\t' << info.mnem;
 	if( info.num_params > 0 )
 	{
 		ss << " ";
