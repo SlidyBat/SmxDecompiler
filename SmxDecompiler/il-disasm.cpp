@@ -145,6 +145,11 @@ void ILDisassembler::VisitArrayElementVar( ILArrayElementVar* node )
 	disasm_ << Visit( node->base() ) << "[" << Visit( node->index() ) << "]";
 }
 
+void ILDisassembler::VisitTempVar( ILTempVar* node )
+{
+	disasm_ << "tmp_" << node->index();
+}
+
 void ILDisassembler::VisitLoad( ILLoad* node )
 {
 	disasm_ << Visit( node->var() );
@@ -214,6 +219,20 @@ void ILDisassembler::VisitNative( ILNative* node )
 void ILDisassembler::VisitRet( ILRet* node )
 {
 	disasm_ << "ret";
+}
+
+void ILDisassembler::VisitPhi( ILPhi* node )
+{
+	disasm_ << "phi(";
+	for( size_t i = 0; i < node->num_inputs(); i++ )
+	{
+		disasm_ << Visit( node->input( i ) );
+		if( i != node->num_inputs() - 1 )
+		{
+			disasm_ << ", ";
+		}
+	}
+	disasm_ << ")";
 }
 
 std::string ILDisassembler::Visit( ILNode* node )

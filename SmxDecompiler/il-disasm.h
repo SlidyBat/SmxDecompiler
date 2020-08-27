@@ -18,6 +18,7 @@ private:
 	virtual void VisitGlobalVar( ILGlobalVar* node ) override;
 	virtual void VisitHeapVar( ILHeapVar* node ) override;
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override;
+	virtual void VisitTempVar( ILTempVar* node ) override;
 	virtual void VisitLoad( ILLoad* node ) override;
 	virtual void VisitStore( ILStore* node ) override;
 	virtual void VisitJump( ILJump* node ) override;
@@ -25,6 +26,7 @@ private:
 	virtual void VisitCall( ILCall* node ) override;
 	virtual void VisitNative( ILNative* node ) override;
 	virtual void VisitRet( ILRet* node ) override;
+	virtual void VisitPhi( ILPhi* node ) override;
 
 	std::string Visit( ILNode* node );
 private:

@@ -6,6 +6,8 @@
 
 ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 {
+	num_temps_ = 0;
+
 	ilcfg_.SetNumArgs( cfg.nargs() );
 
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
@@ -52,6 +54,34 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 		{
 			*expr_stack_ = block_stacks_[in->id()];
 		}
+		else
+		{
+			auto join_reg = [&]( ILNode*& reg, ILNode* value ) {
+				ILPhi* phi = dynamic_cast<ILPhi*>(reg);
+				if( !phi )
+				{
+					phi = new ILPhi;
+					phi->AddInput( reg );
+					reg = phi;
+				}
+				phi->AddInput( value );
+			};
+			join_reg( pri, block_stacks_[in->id()].pri );
+			join_reg( alt, block_stacks_[in->id()].alt );
+		}
+	}
+
+	if( ILPhi* phi = dynamic_cast<ILPhi*>(pri) )
+	{
+		ILTempVar* var = MakeTemp();
+		ilbb.Add( new ILStore( var, phi ) );
+		pri = new ILLoad( var );
+	}
+	if( ILPhi* phi = dynamic_cast<ILPhi*>(alt) )
+	{
+		ILTempVar* var = MakeTemp();
+		ilbb.Add( new ILStore( var, alt ) );
+		alt = new ILLoad( var );
 	}
 
 	const cell_t* instr = bb.start();
@@ -709,4 +739,9 @@ ILNode* PcodeLifter::GetFrameValue( int offset )
 	{
 		return expr_stack_->stack[(-offset - (12 + ilcfg_.nargs()*4)) / 4];
 	}
+}
+
+ILTempVar* PcodeLifter::MakeTemp()
+{
+	return new ILTempVar( num_temps_++ );
 }

@@ -13,6 +13,7 @@ class ILLocalVar;
 class ILGlobalVar;
 class ILHeapVar;
 class ILArrayElementVar;
+class ILTempVar;
 class ILLoad;
 class ILStore;
 class ILJump;
@@ -20,6 +21,7 @@ class ILJumpCond;
 class ILCall;
 class ILNative;
 class ILRet;
+class ILPhi;
 
 class ILVisitor
 {
@@ -33,6 +35,7 @@ public:
 	virtual void VisitGlobalVar( ILGlobalVar* node ) {}
 	virtual void VisitHeapVar( ILHeapVar* node ) {}
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) {}
+	virtual void VisitTempVar( ILTempVar* node ) {}
 	virtual void VisitLoad( ILLoad* node ) {}
 	virtual void VisitStore( ILStore* node ) {}
 	virtual void VisitJump( ILJump* node ) {}
@@ -40,6 +43,7 @@ public:
 	virtual void VisitCall( ILCall* node ) {}
 	virtual void VisitNative( ILNative* node ) {}
 	virtual void VisitRet( ILRet* node ) {}
+	virtual void VisitPhi( ILPhi* node ) {}
 };
 
 class ILNode
@@ -233,6 +237,18 @@ private:
 	ILNode* index_;
 };
 
+class ILTempVar : public ILVar
+{
+public:
+	ILTempVar( size_t index ) : index_( index ) {}
+
+	size_t index() const { return index_; }
+
+	virtual void Accept( ILVisitor* visitor ) { visitor->VisitTempVar( this ); }
+private:
+	size_t index_;
+};
+
 class ILLoad : public ILNode
 {
 public:
@@ -351,4 +367,16 @@ class ILRet : public ILNode
 {
 public:
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitRet( this ); }
+};
+
+class ILPhi : public ILNode
+{
+public:
+	void AddInput( ILNode* input ) { inputs_.push_back( input ); }
+	size_t num_inputs() const { return inputs_.size(); }
+	ILNode* input( size_t index ) { return inputs_[index]; }
+
+	virtual void Accept( ILVisitor* visitor ) { visitor->VisitPhi( this ); }
+private:
+	std::vector<ILNode*> inputs_;
 };

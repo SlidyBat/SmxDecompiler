@@ -16,6 +16,7 @@ private:
 	void Push( ILNode* node );
 	ILNode* Pop();
 	ILNode* GetFrameValue( int offset );
+	class ILTempVar* MakeTemp();
 private:
 	const SmxFile* smx_;
 	ILControlFlowGraph ilcfg_;
@@ -28,5 +29,6 @@ private:
 	};
 
 	std::vector<AbstractExprStack> block_stacks_;
+	size_t num_temps_;
 	AbstractExprStack* expr_stack_;
 };
