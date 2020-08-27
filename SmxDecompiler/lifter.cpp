@@ -24,6 +24,12 @@ ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 		LiftBlock( bb, ilbb );
 	}
 
+	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	{
+		ILBlock& ilbb = ilcfg_.block( i );
+		PruneVarsInBlock( ilbb );
+	}
+
 	return std::move( ilcfg_ );
 }
 
@@ -73,15 +79,15 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 	if( ILPhi* phi = dynamic_cast<ILPhi*>(pri) )
 	{
-		ILTempVar* var = MakeTemp();
-		ilbb.Add( new ILStore( var, phi ) );
-		pri = new ILLoad( var );
+		ILTempVar* var = MakeTemp( phi );
+		ilbb.Add( var );
+		pri = var;
 	}
 	if( ILPhi* phi = dynamic_cast<ILPhi*>(alt) )
 	{
-		ILTempVar* var = MakeTemp();
-		ilbb.Add( new ILStore( var, alt ) );
-		alt = new ILLoad( var );
+		ILTempVar* var = MakeTemp( phi );
+		ilbb.Add( var );
+		alt = var ;
 	}
 
 	const cell_t* instr = bb.start();
@@ -717,6 +723,20 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 	}
 }
 
+void PcodeLifter::PruneVarsInBlock( ILBlock& ilbb )
+{
+	for( int i = (int)ilbb.num_nodes() - 1; i >= 0; i-- )
+	{
+		if( auto* var = dynamic_cast<ILVar*>(ilbb.node( i )) )
+		{
+			if( var->num_uses() == 0 )
+			{
+				ilbb.Remove( i );
+			}
+		}
+	}
+}
+
 ILLocalVar* PcodeLifter::Push( ILNode* value )
 {
 	int offset = (ilcfg_.nargs() + 3) - (int)expr_stack_->stack.size() - 1;
@@ -754,7 +774,7 @@ void PcodeLifter::SetFrameVal( int offset, ILNode* val )
 	GetFrameVar( offset )->SetValue( val );
 }
 
-ILTempVar* PcodeLifter::MakeTemp()
+ILTempVar* PcodeLifter::MakeTemp( ILNode* value )
 {
-	return new ILTempVar( num_temps_++ );
+	return new ILTempVar( num_temps_++, value );
 }

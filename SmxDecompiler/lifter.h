@@ -14,13 +14,14 @@ public:
 	ILControlFlowGraph Lift( const ControlFlowGraph& cfg );
 private:
 	void LiftBlock( BasicBlock& bb, ILBlock& ilbb );
+	void PruneVarsInBlock( ILBlock& ilbb );
 
 	ILLocalVar* Push( ILNode* value );
 	ILLocalVar* Pop();
 	ILLocalVar* GetFrameVar( int offset );
 	ILNode* GetFrameVal( int offset );
 	void SetFrameVal( int offset, ILNode* val );
-	class ILTempVar* MakeTemp();
+	class ILTempVar* MakeTemp( ILNode* value );
 private:
 	const SmxFile* smx_;
 	ILControlFlowGraph ilcfg_;

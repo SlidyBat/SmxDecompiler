@@ -29,8 +29,10 @@ private:
 	virtual void VisitPhi( ILPhi* node ) override;
 
 	std::string Visit( ILNode* node );
+	std::string VisitTopLevel( ILNode* node );
 private:
 	SmxFile* smx_;
 	SmxFunction* func_;
 	std::stringstream disasm_;
+	bool top_level_;
 };

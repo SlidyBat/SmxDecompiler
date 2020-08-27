@@ -9,7 +9,7 @@ std::string ILDisassembler::DisassembleNode( ILNode* node )
 {
 	disasm_.str( {} );
 	disasm_.clear();
-	Visit( node );
+	VisitTopLevel( node );
 	return disasm_.str();
 }
 
@@ -121,6 +121,11 @@ void ILDisassembler::VisitLocalVar( ILLocalVar* node )
 	{
 		disasm_ << "local_" << node->stack_offset();
 	}
+
+	if( node->value() && top_level_ )
+	{
+		disasm_ << " := " << Visit( node->value() );
+	}
 }
 
 void ILDisassembler::VisitGlobalVar( ILGlobalVar* node )
@@ -148,6 +153,10 @@ void ILDisassembler::VisitArrayElementVar( ILArrayElementVar* node )
 void ILDisassembler::VisitTempVar( ILTempVar* node )
 {
 	disasm_ << "tmp_" << node->index();
+	if( node->value() && top_level_ )
+	{
+		disasm_ << " := " << Visit( node->value() );
+	}
 }
 
 void ILDisassembler::VisitLoad( ILLoad* node )
@@ -237,6 +246,18 @@ void ILDisassembler::VisitPhi( ILPhi* node )
 
 std::string ILDisassembler::Visit( ILNode* node )
 {
+	bool old = top_level_;
+	top_level_ = false;
 	node->Accept( this );
+	top_level_ = old;
+	return "";
+}
+
+std::string ILDisassembler::VisitTopLevel( ILNode* node )
+{
+	bool old = top_level_;
+	top_level_ = true;
+	node->Accept( this );
+	top_level_ = old;
 	return "";
 }

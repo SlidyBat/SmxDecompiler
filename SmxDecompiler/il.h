@@ -50,7 +50,14 @@ class ILNode
 {
 public:
 	virtual ~ILNode() = default;
+
+	void AddUse( ILNode* user ) { uses_.push_back( user ); }
+	size_t num_uses() const { return uses_.size(); }
+	ILNode* use( size_t index ) { return uses_[index]; }
+
 	virtual void Accept( ILVisitor* visitor ) = 0;
+private:
+	std::vector<ILNode*> uses_;
 };
 
 class ILConst : public ILNode
@@ -104,7 +111,9 @@ public:
 		:
 		val_( val ),
 		op_( op )
-	{}
+	{
+		val->AddUse( this );
+	}
 
 	ILNode* val() { return val_; }
 	UnaryOp op() { return op_; }
@@ -158,7 +167,10 @@ public:
 		left_( left ),
 		op_( op ),
 		right_( right )
-	{}
+	{
+		left->AddUse( this );
+		right->AddUse( this );
+	}
 
 	BinaryOp op() const { return op_; }
 	ILNode* left() const { return left_; }
@@ -244,13 +256,19 @@ private:
 class ILTempVar : public ILVar
 {
 public:
-	ILTempVar( size_t index ) : index_( index ) {}
+	ILTempVar( size_t index, ILNode* value )
+		:
+		index_( index ),
+		value_( value )
+	{}
 
 	size_t index() const { return index_; }
+	ILNode* value() { return value_; }
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitTempVar( this ); }
 private:
 	size_t index_;
+	ILNode* value_;
 };
 
 class ILLoad : public ILNode
@@ -262,6 +280,7 @@ public:
 		width_( width )
 	{
 		assert( width == 1 || width == 2 || width == 4 );
+		var->AddUse( this );
 	}
 
 	ILVar* var() { return var_; }
@@ -283,6 +302,7 @@ public:
 		width_( width )
 	{
 		assert( width == 1 || width == 2 || width == 4 );
+		var->AddUse( this );
 	}
 
 	size_t width() const { return width_; }
@@ -335,7 +355,7 @@ private:
 class ILCallable : public ILNode
 {
 public:
-	void AddArg( ILNode* arg ) { args_.push_back( arg ); }
+	void AddArg( ILNode* arg ) { args_.push_back( arg ); arg->AddUse( this ); }
 
 	size_t num_args() const { return args_.size(); }
 	ILNode* arg( size_t index ) { return args_[index]; }
