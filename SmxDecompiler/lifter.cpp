@@ -267,16 +267,16 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 
 			case SMX_OP_LREF_S_PRI:
-				assert( 0 );
+				pri = new ILLoad( new ILLocalVar( params[0] ) );
 				break;
 			case SMX_OP_LREF_S_ALT:
-				assert( 0 );
+				alt = new ILLoad( new ILLocalVar( params[0] ) );
 				break;
 			case SMX_OP_SREF_S_PRI:
-				assert( 0 );
+				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), pri ) );
 				break;
 			case SMX_OP_SREF_S_ALT:
-				assert( 0 );
+				ilbb.Add( new ILStore( new ILLocalVar( params[0] ), alt ) );
 				break;
 			
 			case SMX_OP_LODB_I:
