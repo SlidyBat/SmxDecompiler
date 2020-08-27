@@ -80,6 +80,7 @@ public:
 
 	SmxFunction* FindFunctionByName( const char* func_name );
 	SmxFunction* FindFunctionAt( cell_t addr );
+	SmxNative*   FindNativeByIndex( size_t index );
 	SmxVariable* FindGlobalByName( const char* var_name );
 	SmxVariable* FindGlobalAt( cell_t addr );
 

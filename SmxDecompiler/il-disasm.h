@@ -6,6 +6,8 @@
 class ILDisassembler : ILVisitor
 {
 public:
+	ILDisassembler( SmxFile& smx );
+
 	std::string DisassembleNode( ILNode* node );
 	std::string DisassembleBlock( const ILBlock& block );
 private:
@@ -26,5 +28,7 @@ private:
 
 	std::string Visit( ILNode* node );
 private:
+	SmxFile* smx_;
+	SmxFunction* func_;
 	std::stringstream disasm_;
 };

@@ -17,7 +17,7 @@ int main()
 	//for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	//{
 	//	const BasicBlock& bb = cfg.block( i );
-	//	std::string disasm = SmxDisassembler::DisassembleBlock( bb );
+	//	std::string disasm = disassembler.DisassembleBlock( bb );
 	//	printf( "===== BB%i =====\n", bb.id() );
 	//	for( size_t in = 0; in < bb.num_in_edges(); in++ )
 	//	{
@@ -32,7 +32,7 @@ int main()
 
 	PcodeLifter lifter( smx );
 	ILControlFlowGraph ilcfg = lifter.Lift( cfg );
-	ILDisassembler il_disassembler;
+	ILDisassembler il_disassembler( smx );
 	for( size_t i = 0; i < ilcfg.num_blocks(); i++ )
 	{
 		const ILBlock& bb = ilcfg.block( i );

@@ -1,5 +1,10 @@
 #include "il-disasm.h"
 
+ILDisassembler::ILDisassembler( SmxFile& smx )
+	:
+	smx_( &smx )
+{}
+
 std::string ILDisassembler::DisassembleNode( ILNode* node )
 {
 	disasm_.str( {} );
@@ -10,6 +15,8 @@ std::string ILDisassembler::DisassembleNode( ILNode* node )
 
 std::string ILDisassembler::DisassembleBlock( const ILBlock& block )
 {
+	func_ = smx_->FindFunctionAt( block.pc() );
+
 	std::stringstream block_disasm;
 	for( size_t node = 0; node < block.num_nodes(); node++ )
 	{
@@ -96,12 +103,36 @@ void ILDisassembler::VisitBinary( ILBinary* node )
 
 void ILDisassembler::VisitLocalVar( ILLocalVar* node )
 {
-	disasm_ << "local_" << node->stack_offset();
+	bool found_name = false;
+	if( func_ )
+	{
+		for( size_t i = 0; i < func_->num_locals; i++ )
+		{
+			if( func_->locals[i].address == node->stack_offset() )
+			{
+				disasm_ << func_->locals[i].name;
+				found_name = true;
+				break;
+			}
+		}
+	}
+
+	if( !found_name )
+	{
+		disasm_ << "local_" << node->stack_offset();
+	}
 }
 
 void ILDisassembler::VisitGlobalVar( ILGlobalVar* node )
 {
-	disasm_ << "global_" << node->addr();
+	if( SmxVariable* var = smx_->FindGlobalAt( node->addr() ) )
+	{
+		disasm_ << var->name;
+	}
+	else
+	{
+		disasm_ << "global_" << node->addr();
+	}
 }
 
 void ILDisassembler::VisitHeapVar( ILHeapVar* node )
@@ -136,7 +167,16 @@ void ILDisassembler::VisitJumpCond( ILJumpCond* node )
 
 void ILDisassembler::VisitCall( ILCall* node )
 {
-	disasm_ << "func_" << node->addr() << "(";
+	if( SmxFunction* func = smx_->FindFunctionAt( node->addr() ) )
+	{
+		disasm_ << func->name;
+	}
+	else
+	{
+		disasm_ << "func_" << node->addr();
+	}
+
+	disasm_ << "(";
 	for( size_t i = 0; i < node->num_args(); i++ )
 	{
 		disasm_ << Visit( node->arg( i ) );
@@ -150,7 +190,16 @@ void ILDisassembler::VisitCall( ILCall* node )
 
 void ILDisassembler::VisitNative( ILNative* node )
 {
-	disasm_ << "native_" << node->native_index() << "(";
+	if( SmxNative* native = smx_->FindNativeByIndex( node->native_index() ) )
+	{
+		disasm_ << native->name;
+	}
+	else
+	{
+		disasm_ << "native_" << node->native_index();
+	}
+
+	disasm_ << "(";
 	for( size_t i = 0; i < node->num_args(); i++ )
 	{
 		disasm_ << Visit( node->arg( i ) );

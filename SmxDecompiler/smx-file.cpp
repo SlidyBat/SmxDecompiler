@@ -214,10 +214,19 @@ SmxFunction* SmxFile::FindFunctionAt( cell_t addr )
 {
     for( SmxFunction& func : functions_ )
     {
-        if( (cell_t)( (intptr_t)code() - (intptr_t)func.pcode_start ) == addr )
+        if( addr >= func.pcode_start && addr < func.pcode_end )
         {
             return &func;
         }
+    }
+    return nullptr;
+}
+
+SmxNative* SmxFile::FindNativeByIndex( size_t index )
+{
+    if( index < natives_.size() )
+    {
+        return &natives_[index];
     }
     return nullptr;
 }
@@ -480,7 +489,7 @@ void SmxFile::ReadDbgLocals( const char* name, size_t offset, size_t size )
         auto* row = reinterpret_cast<const smx_rtti_debug_var*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
         SmxVariable var;
         var.name = names_ + row->name;
-        var.address = row->type_id;
+        var.address = row->address;
         locals_.push_back( var );
     }
 }
