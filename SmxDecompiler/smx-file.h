@@ -18,12 +18,20 @@ struct SmxFunctionSignature
 	bool varargs;
 };
 
+struct SmxVariable
+{
+	const char* name;
+	cell_t address;
+};
+
 struct SmxFunction
 {
 	const char* name;
-	cell_t* pcode_start;
-	cell_t* pcode_end;
+	cell_t pcode_start;
+	cell_t pcode_end;
 	SmxFunctionSignature signature;
+	size_t num_locals = 0;
+	SmxVariable* locals;
 };
 
 struct SmxNative
@@ -71,6 +79,9 @@ public:
 	SmxFile( const char* filename );
 
 	SmxFunction* FindFunctionByName( const char* func_name );
+	SmxFunction* FindFunctionAt( cell_t addr );
+	SmxVariable* FindGlobalByName( const char* var_name );
+	SmxVariable* FindGlobalAt( cell_t addr );
 
 	size_t num_functions() const { return functions_.size(); }
 	SmxFunction& function( size_t index ) { return functions_[index]; }
@@ -84,7 +95,8 @@ public:
 	SmxTypeDef& type_set( size_t index ) { return typedefs_[index]; }
 	size_t num_enum_structs() const { return enum_structs_.size(); }
 	SmxEnumStruct& enum_struct( size_t index ) { return enum_structs_[index]; }
-
+	size_t num_globals() const { return globals_.size(); }
+	SmxVariable& global( size_t index ) { return globals_[index]; }
 
 	cell_t* code( size_t addr = 0 ) const { return (cell_t*)((uintptr_t)code_ + addr); }
 	size_t code_size() const { return code_size_; }
@@ -107,6 +119,9 @@ private:
 	void ReadRttiFields( const char* name, size_t offset, size_t size );
 	void ReadRttiEnumStructs( const char* name, size_t offset, size_t size );
 	void ReadRttiEnumStructFields( const char* name, size_t offset, size_t size );
+	void ReadDbgMethods( const char* name, size_t offset, size_t size );
+	void ReadDbgGlobals( const char* name, size_t offset, size_t size );
+	void ReadDbgLocals( const char* name, size_t offset, size_t size );
 private:
 	std::unique_ptr<char[]> image_;
 	char* stringtab_ = nullptr;
@@ -124,4 +139,6 @@ private:
 	std::vector<SmxTypeSet> typesets_;
 	std::vector<SmxESField> es_fields_;
 	std::vector<SmxEnumStruct> enum_structs_;
+	std::vector<SmxVariable> globals_;
+	std::vector<SmxVariable> locals_;
 };

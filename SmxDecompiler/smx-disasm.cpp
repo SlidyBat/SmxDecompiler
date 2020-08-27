@@ -2,6 +2,11 @@
 
 #include <sstream>
 
+SmxDisassembler::SmxDisassembler( const SmxFile& smx )
+	:
+	smx_( &smx )
+{}
+
 std::string SmxDisassembler::DisassembleInstr( const cell_t* instr )
 {
 	const auto& info = SmxInstrInfo::Get( instr[0] );
@@ -25,8 +30,8 @@ std::string SmxDisassembler::DisassembleInstr( const cell_t* instr )
 std::string SmxDisassembler::DisassembleFunction( const SmxFunction& func )
 {
 	std::ostringstream ss;
-	const cell_t* instr = func.pcode_start;
-	while( instr < func.pcode_end )
+	const cell_t* instr = smx_->code( func.pcode_start );
+	while( instr < smx_->code( func.pcode_end ) )
 	{
 		const auto& info = SmxInstrInfo::Get( instr[0] );
 		ss << DisassembleInstr( instr ) << "\n";

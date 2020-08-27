@@ -8,7 +8,11 @@
 class SmxDisassembler
 {
 public:
-	static std::string DisassembleInstr( const cell_t* instr );
-	static std::string DisassembleFunction( const SmxFunction& func );
-	static std::string DisassembleBlock( const BasicBlock& bb );
+	SmxDisassembler( const SmxFile& smx );
+
+	std::string DisassembleInstr( const cell_t* instr );
+	std::string DisassembleFunction( const SmxFunction& func );
+	std::string DisassembleBlock( const BasicBlock& bb );
+private:
+	const SmxFile* smx_;
 };

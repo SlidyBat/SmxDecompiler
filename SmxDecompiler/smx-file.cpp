@@ -120,6 +120,20 @@ struct smx_rtti_es_field {
     uint32_t offset;
 };
 
+struct smx_rtti_debug_method {
+    uint32_t method_index;
+    uint32_t first_local;
+};
+
+struct smx_rtti_debug_var {
+    int32_t address;
+    uint8_t vclass;
+    uint32_t name;
+    uint32_t code_start;
+    uint32_t code_end;
+    uint32_t type_id;
+};
+
 #if defined __GNUC__
 #    pragma pack()
 #else
@@ -196,6 +210,42 @@ SmxFunction* SmxFile::FindFunctionByName( const char* func_name )
     return nullptr;
 }
 
+SmxFunction* SmxFile::FindFunctionAt( cell_t addr )
+{
+    for( SmxFunction& func : functions_ )
+    {
+        if( (cell_t)( (intptr_t)code() - (intptr_t)func.pcode_start ) == addr )
+        {
+            return &func;
+        }
+    }
+    return nullptr;
+}
+
+SmxVariable* SmxFile::FindGlobalByName( const char* var_name )
+{
+    for( SmxVariable& var : globals_ )
+    {
+        if( strcmp( var.name, var_name ) == 0 )
+        {
+            return &var;
+        }
+    }
+    return nullptr;
+}
+
+SmxVariable* SmxFile::FindGlobalAt( cell_t addr )
+{
+    for( SmxVariable& var : globals_ )
+    {
+        if( var.address == addr )
+        {
+            return &var;
+        }
+    }
+    return nullptr;
+}
+
 SmxSection* SmxFile::GetSectionByName( const char* name )
 {
     for( SmxSection& section : sections_ )
@@ -228,6 +278,9 @@ void SmxFile::ReadSections()
     READ_SECTION( "rtti.fields",            ReadRttiFields );
     READ_SECTION( "rtti.enumstruct_fields", ReadRttiEnumStructFields );
     READ_SECTION( "rtti.enumstructs",       ReadRttiEnumStructs );
+    READ_SECTION( ".dbg.globals",           ReadDbgGlobals );
+    READ_SECTION( ".dbg.locals",            ReadDbgLocals );
+    READ_SECTION( ".dbg.methods",           ReadDbgMethods );
 }
 #undef READ_SECTION
 
@@ -265,8 +318,8 @@ void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
         auto* row = reinterpret_cast<const smx_rtti_method*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
         SmxFunction func;
         func.name = names_ + row->name;
-        func.pcode_start = (cell_t*)((uintptr_t)code_ + row->pcode_start);
-        func.pcode_end = (cell_t*)((uintptr_t)code_ + row->pcode_end );
+        func.pcode_start = row->pcode_start;
+        func.pcode_end = row->pcode_end;
         // TODO: Handle signature reading
         func.signature.nargs = 0;
         func.signature.varargs = false;
@@ -378,5 +431,56 @@ void SmxFile::ReadRttiEnumStructFields( const char* name, size_t offset, size_t 
         esf.type_id = row->type_id;
         esf.offset = row->offset;
         es_fields_.push_back( esf );
+    }
+}
+
+void SmxFile::ReadDbgMethods( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_debug_method*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxFunction& func = functions_[row->method_index];
+        if( i != rttihdr->row_count - 1 )
+        {
+            auto* next_row = reinterpret_cast<const smx_rtti_debug_method*>( image_.get() + offset + rttihdr->header_size + (i + 1) * rttihdr->row_size );
+            func.num_locals = next_row->first_local - row->first_local;
+        }
+        else
+        {
+            func.num_locals = locals_.size() - row->first_local;
+        }
+        func.locals = &locals_[row->first_local];
+    }
+}
+
+void SmxFile::ReadDbgGlobals( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    globals_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_debug_var*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxVariable var;
+        var.name = names_ + row->name;
+        var.address = row->type_id;
+        globals_.push_back( var );
+    }
+}
+
+void SmxFile::ReadDbgLocals( const char* name, size_t offset, size_t size )
+{
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>( image_.get() + offset );
+
+    locals_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_debug_var*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
+        SmxVariable var;
+        var.name = names_ + row->name;
+        var.address = row->type_id;
+        locals_.push_back( var );
     }
 }

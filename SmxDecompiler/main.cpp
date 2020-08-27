@@ -9,10 +9,11 @@ int main()
 	SmxFile smx( "tests/test.smx" );
 	const SmxFunction* func = smx.FindFunctionByName( "OnPluginStart" );
 	printf( "Function %s\n", func->name );
-	puts( SmxDisassembler::DisassembleFunction( *func ).c_str() );
+	SmxDisassembler disassembler( smx );
+	puts( disassembler.DisassembleFunction( *func ).c_str() );
 
 	CfgBuilder builder( smx );
-	ControlFlowGraph cfg = builder.Build( func->pcode_start );
+	ControlFlowGraph cfg = builder.Build( smx.code( func->pcode_start ) );
 	//for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	//{
 	//	const BasicBlock& bb = cfg.block( i );
@@ -31,11 +32,11 @@ int main()
 
 	PcodeLifter lifter( smx );
 	ILControlFlowGraph ilcfg = lifter.Lift( cfg );
-	ILDisassembler disassembler;
+	ILDisassembler il_disassembler;
 	for( size_t i = 0; i < ilcfg.num_blocks(); i++ )
 	{
 		const ILBlock& bb = ilcfg.block( i );
-		std::string disasm = disassembler.DisassembleBlock( bb );
+		std::string disasm = il_disassembler.DisassembleBlock( bb );
 		printf( "===== BB%zi =====\n", bb.id() );
 		for( size_t in = 0; in < bb.num_in_edges(); in++ )
 		{
