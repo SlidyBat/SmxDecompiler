@@ -1,5 +1,6 @@
 #include "il-cfg.h"
 
+#include "il.h"
 #include <cassert>
 
 void ILControlFlowGraph::AddBlock( size_t id, cell_t pc )
@@ -73,6 +74,19 @@ ILBlock* ILControlFlowGraph::Intersect( ILBlock* b1, ILBlock* b2 )
 void ILControlFlowGraph::NewEpoch()
 {
 	epoch_++;
+}
+
+void ILBlock::Prepend( ILNode* node )
+{
+	if( !nodes_.empty() &&
+		(dynamic_cast<ILJump*>(nodes_.back()) || dynamic_cast<ILJumpCond*>(nodes_.back()) || dynamic_cast<ILRet*>(nodes_.back())) )
+	{
+		nodes_.insert( nodes_.end() - 1, node );
+	}
+	else
+	{
+		nodes_.push_back( node );
+	}
 }
 
 void ILBlock::AddTarget( ILBlock* bb )

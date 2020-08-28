@@ -15,6 +15,7 @@ public:
 private:
 	void LiftBlock( BasicBlock& bb, ILBlock& ilbb );
 	void PruneVarsInBlock( ILBlock& ilbb );
+	void MovePhis( ILBlock& ilbb );
 
 	ILLocalVar* Push( ILNode* value );
 	ILLocalVar* Pop();

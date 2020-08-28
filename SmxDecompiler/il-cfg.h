@@ -16,7 +16,7 @@ public:
 
 	void Add( ILNode* node ) { nodes_.push_back( node ); }
 	void Remove( size_t index ) { nodes_.erase( nodes_.begin() + index ); }
-	void Prepend( ILNode* node ) { nodes_.insert( nodes_.end() - 1, node ); }
+	void Prepend( ILNode* node );
 	void AddTarget( ILBlock* bb );
 
 	cell_t pc() const { return pc_; }

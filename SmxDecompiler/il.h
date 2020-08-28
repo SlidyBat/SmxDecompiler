@@ -263,6 +263,7 @@ public:
 	{}
 
 	size_t index() const { return index_; }
+	void SetValue( ILNode* value ) { value_ = value; }
 	ILNode* value() { return value_; }
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitTempVar( this ); }

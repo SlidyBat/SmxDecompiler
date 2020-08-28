@@ -24,13 +24,18 @@ ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 		LiftBlock( bb, ilbb );
 	}
 
+	ilcfg_.ComputeDominance();
+
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
 		ILBlock& ilbb = ilcfg_.block( i );
 		PruneVarsInBlock( ilbb );
 	}
-
-	ilcfg_.ComputeDominance();
+	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	{
+		ILBlock& ilbb = ilcfg_.block( i );
+		MovePhis( ilbb );
+	}
 
 	return std::move( ilcfg_ );
 }
@@ -733,6 +738,34 @@ void PcodeLifter::PruneVarsInBlock( ILBlock& ilbb )
 		{
 			if( var->num_uses() == 0 )
 			{
+				ilbb.Remove( i );
+			}
+		}
+	}
+}
+
+void PcodeLifter::MovePhis( ILBlock& ilbb )
+{
+	// Turn phis into stores on incoming edges
+	for( int i = (int)ilbb.num_nodes() - 1; i >= 0; i-- )
+	{
+		if( auto* tmp = dynamic_cast<ILTempVar*>(ilbb.node( i )) )
+		{
+			if( auto* phi = dynamic_cast<ILPhi*>(tmp->value()) )
+			{
+				// Add declaration at idom
+				tmp->SetValue( nullptr );
+				ilbb.idom()->Prepend( tmp );
+
+				// Add stores on incoming edges
+				assert( phi->num_inputs() == ilbb.num_in_edges() );
+				for( size_t inp = 0; inp < phi->num_inputs(); inp++ )
+				{
+					ILBlock* in = ilbb.in_edge( inp );
+					in->Prepend( new ILStore( tmp, phi->input( inp ) ) );
+				}
+
+				// Remove from current block
 				ilbb.Remove( i );
 			}
 		}
