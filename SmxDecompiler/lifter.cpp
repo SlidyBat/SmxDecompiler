@@ -30,6 +30,8 @@ ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 		PruneVarsInBlock( ilbb );
 	}
 
+	ilcfg_.ComputeDominance();
+
 	return std::move( ilcfg_ );
 }
 

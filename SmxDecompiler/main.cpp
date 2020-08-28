@@ -46,6 +46,14 @@ int main()
 		{
 			printf( "> Outgoing edge: BB%zi\n", bb.out_edge( out )->id() );
 		}
+		for( ILBlock* p = bb.idom(); ; p = p->idom() )
+		{
+			printf( "> Dominator: BB%zi\n", p->id() );
+			if( p == p->idom() )
+			{
+				break;
+			}
+		}
 		printf( "%s\n", disasm.c_str() );
 	}
 

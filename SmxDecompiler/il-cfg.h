@@ -28,6 +28,11 @@ public:
 	size_t num_out_edges() const { return out_edges_.size(); }
 	ILBlock* out_edge( size_t index ) const { return out_edges_[index]; }
 
+	void SetImmediateDominator( ILBlock* block ) { idom_ = block; }
+	ILBlock* idom() const { return idom_; }
+
+	bool Dominates( ILBlock* block ) const;
+
 	bool IsBackEdge( size_t index ) { return out_edges_[index]->id_ < id_; }
 private:
 	friend class ILControlFlowGraph;
@@ -42,6 +47,7 @@ private:
 	std::vector<ILNode*> nodes_;
 	std::vector<ILBlock*> in_edges_;
 	std::vector<ILBlock*> out_edges_;
+	ILBlock* idom_ = nullptr;
 };
 
 class ILControlFlowGraph
@@ -57,7 +63,10 @@ public:
 	int nargs() const { return nargs_; }
 
 	int epoch() const { return epoch_; }
+
+	void ComputeDominance();
 private:
+	ILBlock* Intersect( ILBlock* b1, ILBlock* b2 );
 	void NewEpoch();
 private:
 	int nargs_ = 0;
