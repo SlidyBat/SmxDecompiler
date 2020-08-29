@@ -797,8 +797,8 @@ void PcodeLifter::MovePhis( ILBlock& ilbb )
 				assert( phi->num_inputs() == ilbb.num_in_edges() );
 				for( size_t inp = 0; inp < phi->num_inputs(); inp++ )
 				{
-					ILBlock* in = ilbb.in_edge( inp );
-					in->Prepend( new ILStore( tmp, phi->input( inp ) ) );
+					ILBlock& in = ilbb.in_edge( inp );
+					in.Prepend( new ILStore( tmp, phi->input( inp ) ) );
 				}
 
 				// Remove from current block

@@ -40,11 +40,11 @@ int main()
 		printf( "===== BB%zi =====\n", bb.id() );
 		for( size_t in = 0; in < bb.num_in_edges(); in++ )
 		{
-			printf( "> Incoming edge: BB%zi\n", bb.in_edge( in )->id() );
+			printf( "> Incoming edge: BB%zi\n", bb.in_edge( in ).id() );
 		}
 		for( size_t out = 0; out < bb.num_out_edges(); out++ )
 		{
-			printf( "> Outgoing edge: BB%zi\n", bb.out_edge( out )->id() );
+			printf( "> Outgoing edge: BB%zi\n", bb.out_edge( out ).id() );
 		}
 		for( ILBlock* p = bb.idom(); ; p = p->idom() )
 		{

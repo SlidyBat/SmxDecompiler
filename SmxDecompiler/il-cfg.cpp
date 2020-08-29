@@ -34,13 +34,13 @@ void ILControlFlowGraph::ComputeDominance()
 			ILBlock& b = blocks_[i];
 			assert( b.num_in_edges() );
 
-			ILBlock* new_idom = b.in_edge( 0 );
+			ILBlock* new_idom = &b.in_edge( 0 );
 			for( size_t in = 1; in < b.num_in_edges(); in++ )
 			{
-				ILBlock* p = b.in_edge( in );
-				if( p->idom() != nullptr )
+				ILBlock& p = b.in_edge( in );
+				if( p.idom() != nullptr )
 				{
-					new_idom = Intersect( p, new_idom );
+					new_idom = Intersect( p, *new_idom );
 				}
 			}
 
@@ -53,10 +53,10 @@ void ILControlFlowGraph::ComputeDominance()
 	}
 }
 
-ILBlock* ILControlFlowGraph::Intersect( ILBlock* b1, ILBlock* b2 )
+ILBlock* ILControlFlowGraph::Intersect( ILBlock& b1, ILBlock& b2 )
 {
-	ILBlock* finger1 = b1;
-	ILBlock* finger2 = b2;
+	ILBlock* finger1 = &b1;
+	ILBlock* finger2 = &b2;
 	while( finger1 != finger2 )
 	{
 		while( finger1->id() > finger2->id() )
