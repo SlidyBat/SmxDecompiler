@@ -7,7 +7,7 @@
 int main()
 {
 	SmxFile smx( "tests/test.smx" );
-	const SmxFunction* func = smx.FindFunctionByName( "OnPluginStart" );
+	const SmxFunction* func = smx.FindFunctionByName( "OnAdminMenuReady" );
 	printf( "Function %s\n", func->name );
 	SmxDisassembler disassembler( smx );
 	puts( disassembler.DisassembleFunction( *func ).c_str() );

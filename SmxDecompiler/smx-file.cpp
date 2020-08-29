@@ -474,7 +474,7 @@ void SmxFile::ReadDbgGlobals( const char* name, size_t offset, size_t size )
         auto* row = reinterpret_cast<const smx_rtti_debug_var*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
         SmxVariable var;
         var.name = names_ + row->name;
-        var.address = row->type_id;
+        var.address = row->address;
         globals_.push_back( var );
     }
 }
