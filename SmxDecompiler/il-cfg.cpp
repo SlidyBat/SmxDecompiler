@@ -111,6 +111,23 @@ bool ILBlock::Dominates( ILBlock* block ) const
 	return false;
 }
 
+bool ILBlock::IsBackEdge( size_t out_edge ) const
+{
+	return out_edges_[out_edge]->id_ < id_;
+}
+
+bool ILBlock::IsLoopHeader() const
+{
+	for( ILBlock* p : in_edges_ )
+	{
+		if( p->id_ >= id_ )
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool ILBlock::IsVisited() const
 {
 	return epoch_ == cfg_->epoch();

@@ -52,8 +52,14 @@ public:
 	virtual ~ILNode() = default;
 
 	void AddUse( ILNode* user ) { uses_.push_back( user ); }
+	void ReplaceUsesWith( ILNode* replacement )
+	{
+		for( ILNode* use : uses_ ) use->ReplaceParam( this, replacement );
+	}
 	size_t num_uses() const { return uses_.size(); }
 	ILNode* use( size_t index ) { return uses_[index]; }
+	
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) {}
 
 	virtual void Accept( ILVisitor* visitor ) = 0;
 private:
@@ -118,6 +124,13 @@ public:
 	ILNode* val() { return val_; }
 	UnaryOp op() { return op_; }
 
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( val_ == target );
+		replacement->AddUse( this );
+		val_ = replacement;
+	}
+
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitUnary( this ); }
 private:
 	ILNode* val_;
@@ -175,6 +188,20 @@ public:
 	BinaryOp op() const { return op_; }
 	ILNode* left() const { return left_; }
 	ILNode* right() const { return right_; }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( left_ == target || right_ );
+		replacement->AddUse( this );
+		if( left_ == target )
+		{
+			left_ = replacement;
+		}
+		else
+		{
+			right_ = replacement;
+		}
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitBinary( this ); }
 private:
@@ -287,6 +314,13 @@ public:
 	ILVar* var() { return var_; }
 	size_t width() const { return width_; }
 
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( var_ == target && dynamic_cast<ILVar*>( target ) );
+		replacement->AddUse( this );
+		var_ = dynamic_cast<ILVar*>( replacement );
+	}
+
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitLoad( this ); }
 private:
 	size_t width_;
@@ -304,11 +338,27 @@ public:
 	{
 		assert( width == 1 || width == 2 || width == 4 );
 		var->AddUse( this );
+		val->AddUse( this );
 	}
 
 	size_t width() const { return width_; }
 	ILVar* var() { return var_; }
 	ILNode* val() { return val_; }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( var_ == target || val_ == target );
+		replacement->AddUse( this );
+		if( var_ == target )
+		{
+			var_ = dynamic_cast<ILVar*>(replacement);
+			assert( var_ );
+		}
+		else
+		{
+			val_ = replacement;
+		}
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitStore( this ); }
 private:
@@ -360,6 +410,19 @@ public:
 
 	size_t num_args() const { return args_.size(); }
 	ILNode* arg( size_t index ) { return args_[index]; }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		replacement->AddUse( this );
+		for( size_t i = 0; i < args_.size(); i++ )
+		{
+			if( args_[i] == target )
+			{
+				args_[i] = replacement;
+				break;
+			}
+		}
+	}
 private:
 	std::vector<ILNode*> args_;
 };

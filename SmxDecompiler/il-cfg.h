@@ -16,8 +16,10 @@ public:
 
 	void Add( ILNode* node ) { nodes_.push_back( node ); }
 	void Remove( size_t index ) { nodes_.erase( nodes_.begin() + index ); }
+	void Replace( size_t index, ILNode* value ) { nodes_[index] = value; }
 	void Prepend( ILNode* node );
 	void AddTarget( ILBlock* bb );
+	ILNode* Last() { return nodes_.empty() ? nullptr : nodes_.back(); }
 
 	cell_t pc() const { return pc_; }
 	size_t id() const { return id_; }
@@ -33,7 +35,8 @@ public:
 
 	bool Dominates( ILBlock* block ) const;
 
-	bool IsBackEdge( size_t index ) { return out_edges_[index]->id_ < id_; }
+	bool IsBackEdge( size_t out_edge ) const;
+	bool IsLoopHeader() const;
 private:
 	friend class ILControlFlowGraph;
 

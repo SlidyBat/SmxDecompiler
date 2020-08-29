@@ -14,6 +14,7 @@ public:
 	ILControlFlowGraph Lift( const ControlFlowGraph& cfg );
 private:
 	void LiftBlock( BasicBlock& bb, ILBlock& ilbb );
+	void CleanCalls( ILBlock& ilbb );
 	void PruneVarsInBlock( ILBlock& ilbb );
 	void MovePhis( ILBlock& ilbb );
 

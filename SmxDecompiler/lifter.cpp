@@ -29,6 +29,11 @@ ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
 		ILBlock& ilbb = ilcfg_.block( i );
+		CleanCalls( ilbb );
+	}
+	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	{
+		ILBlock& ilbb = ilcfg_.block( i );
 		PruneVarsInBlock( ilbb );
 	}
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
@@ -661,14 +666,16 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				{
 					call->AddArg( Pop() );
 				}
-				ilbb.Add( call );
-				pri = call;
+				ILTempVar* result = MakeTemp( call );
+				ilbb.Add( result );
+				pri = result;
 				break;
 			}
 			case SMX_OP_SYSREQ_C:
 			{
-				pri = new ILNative( params[0] );
-				ilbb.Add( pri );
+				ILTempVar* result = MakeTemp( new ILNative( params[0] ) );
+				ilbb.Add( result );
+				pri = result;
 			}
 			case SMX_OP_SYSREQ_N:
 			{
@@ -679,8 +686,9 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				{
 					ntv->AddArg( Pop()->value() );
 				}
-				ilbb.Add( ntv );
-				pri = ntv;
+				ILTempVar* result = MakeTemp( ntv );
+				ilbb.Add( result );
+				pri = result;
 				break;
 			}
 
@@ -727,6 +735,34 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 
 		instr = next_instr;
+	}
+}
+
+void PcodeLifter::CleanCalls( ILBlock& ilbb )
+{
+	for( int i = (int)ilbb.num_nodes() - 1; i >= 0; i-- )
+	{
+		if( auto* var = dynamic_cast<ILTempVar*>(ilbb.node( i )) )
+		{
+			ILCallable* call = dynamic_cast<ILCallable*>(var->value());
+			if( !call )
+			{
+				continue;
+			}
+
+			if( var->num_uses() == 0 )
+			{
+				// If call result is not used anywhere, remove the temp var
+				// Can't remove call entirely since it may have side effects
+				ilbb.Replace( i, call );
+			}
+			else if( var->num_uses() == 1 )
+			{
+				// Just use call node directly at use site rather than going through temp var
+				var->ReplaceUsesWith( call );
+				ilbb.Remove( i );
+			}
+		}
 	}
 }
 
