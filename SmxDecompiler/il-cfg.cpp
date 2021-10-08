@@ -53,6 +53,78 @@ void ILControlFlowGraph::ComputeDominance()
 	}
 }
 
+ILControlFlowGraph* ILControlFlowGraph::Next()
+{
+	std::vector<std::vector<ILBlock*>> intervals;
+
+	NewEpoch();
+
+	intervals.push_back( IntervalForHeader( blocks_[0] ) );
+
+	bool changed = true;
+	while( changed )
+	{
+		changed = false;
+
+		for( size_t i = 1; i < num_blocks(); i++ )
+		{
+			ILBlock& m = block( i );
+			if( m.IsVisited() )
+			{
+				continue;
+			}
+
+			for( size_t i = 0; i < m.num_in_edges(); i++ )
+			{
+				ILBlock& p = m.in_edge( i );
+				if( p.IsVisited() )
+				{
+					intervals.push_back( IntervalForHeader( m ) );
+					changed = true;
+					break;
+				}
+			}
+		}
+	}
+
+	ILControlFlowGraph* next = new ILControlFlowGraph;
+
+	// Add intervals to new graph
+	for( size_t i = 0; i < intervals.size(); i++ )
+	{
+		next->AddBlock( i, intervals[i][0]->pc() );
+		ILBlock& interval_block = next->block( i );
+		for( auto& block : intervals[i] )
+		{
+			interval_block.Add( new ILInterval( block ) );
+		}
+	}
+
+	// Calculate the edges
+	for( size_t i = 0; i < intervals.size(); i++ )
+	{
+		ILBlock* outer = &next->block( i );
+		for( size_t j = 0; j < intervals[i].size(); j++ )
+		{
+			ILBlock* inner = intervals[i][j];
+			for( size_t edge = 0; edge < inner->num_out_edges(); edge++ )
+			{
+				ILBlock* target = &inner->out_edge( edge );
+
+				// Find the outer interval that corresponds to this edge
+				size_t outer_target_index = FindOuterTarget( intervals, target );
+				ILBlock* outer_target = &next->block( outer_target_index );
+				if( outer_target != outer )
+				{
+					outer->AddTarget( *outer_target );
+				}
+			}
+		}
+	}
+
+	return next;
+}
+
 ILBlock* ILControlFlowGraph::Intersect( ILBlock& b1, ILBlock& b2 )
 {
 	ILBlock* finger1 = &b1;
@@ -69,6 +141,51 @@ ILBlock* ILControlFlowGraph::Intersect( ILBlock& b1, ILBlock& b2 )
 		}
 	}
 	return finger1;
+}
+
+std::vector<ILBlock*> ILControlFlowGraph::IntervalForHeader( ILBlock& header )
+{
+	std::vector<ILBlock*> I;
+	I.push_back( &header );
+	header.SetVisited();
+	for( size_t i = 1; i < num_blocks(); i++ )
+	{
+		ILBlock& m = block( i );
+		if( m.IsVisited() )
+		{
+			continue;
+		}
+
+		bool add_to_interval = true;
+		for( size_t j = 0; j < m.num_in_edges(); j++ )
+		{
+			ILBlock* p = &m.in_edge( j );
+			if( std::find( I.begin(), I.end(), p ) == I.end() )
+			{
+				add_to_interval = false;
+				break;
+			}
+		}
+
+		if( add_to_interval )
+		{
+			I.push_back( &m );
+			m.SetVisited();
+		}
+	}
+
+	return I;
+}
+
+size_t ILControlFlowGraph::FindOuterTarget( const std::vector<std::vector<ILBlock*>> intervals, ILBlock* target )
+{
+	for( size_t i = 0; i < intervals.size(); i++ )
+	{
+		if( std::find( intervals[i].begin(), intervals[i].end(), target ) != intervals[i].end() )
+			return i;
+	}
+
+	return (size_t)-1;
 }
 
 void ILControlFlowGraph::NewEpoch()
@@ -89,10 +206,10 @@ void ILBlock::Prepend( ILNode* node )
 	}
 }
 
-void ILBlock::AddTarget( ILBlock* bb )
+void ILBlock::AddTarget( ILBlock& bb )
 {
-	bb->in_edges_.push_back( this );
-	out_edges_.push_back( bb );
+	bb.in_edges_.push_back( this );
+	out_edges_.push_back( &bb );
 }
 
 bool ILBlock::Dominates( ILBlock* block ) const

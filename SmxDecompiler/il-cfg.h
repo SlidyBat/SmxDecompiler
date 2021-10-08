@@ -18,7 +18,7 @@ public:
 	void Remove( size_t index ) { nodes_.erase( nodes_.begin() + index ); }
 	void Replace( size_t index, ILNode* value ) { nodes_[index] = value; }
 	void Prepend( ILNode* node );
-	void AddTarget( ILBlock* bb );
+	void AddTarget( ILBlock& bb );
 	ILNode* Last() { return nodes_.empty() ? nullptr : nodes_.back(); }
 
 	cell_t pc() const { return pc_; }
@@ -37,12 +37,12 @@ public:
 
 	bool IsBackEdge( size_t out_edge ) const;
 	bool IsLoopHeader() const;
-private:
-	friend class ILControlFlowGraph;
 
 	bool IsVisited() const;
 	void SetVisited();
 private:
+	friend class ILControlFlowGraph;
+
 	const ILControlFlowGraph* cfg_;
 	cell_t pc_;
 	size_t id_ = 0;
@@ -58,6 +58,7 @@ class ILControlFlowGraph
 public:
 	void AddBlock( size_t id, cell_t pc );
 	ILBlock* FindBlockAt( cell_t pc );
+	ILBlock& Entry() { return blocks_[0]; }
 
 	size_t num_blocks() const { return blocks_.size(); }
 	ILBlock& block( size_t index ) { return blocks_[index]; }
@@ -66,11 +67,15 @@ public:
 	int nargs() const { return nargs_; }
 
 	int epoch() const { return epoch_; }
+	void NewEpoch();
 
 	void ComputeDominance();
+
+	ILControlFlowGraph* Next();
 private:
 	ILBlock* Intersect( ILBlock& b1, ILBlock& b2 );
-	void NewEpoch();
+	std::vector<ILBlock*> IntervalForHeader( ILBlock& header );
+	size_t FindOuterTarget( const std::vector<std::vector<ILBlock*>> intervals, ILBlock* target );
 private:
 	int nargs_ = 0;
 	std::vector<ILBlock> blocks_;

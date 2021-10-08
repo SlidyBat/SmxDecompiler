@@ -11,7 +11,7 @@ class PcodeLifter
 public:
 	PcodeLifter( const SmxFile& smx ) : smx_( &smx ) {}
 
-	ILControlFlowGraph Lift( const ControlFlowGraph& cfg );
+	ILControlFlowGraph* Lift( const ControlFlowGraph& cfg );
 private:
 	void LiftBlock( BasicBlock& bb, ILBlock& ilbb );
 	void CleanCalls( ILBlock& ilbb );
@@ -26,7 +26,7 @@ private:
 	class ILTempVar* MakeTemp( ILNode* value );
 private:
 	const SmxFile* smx_;
-	ILControlFlowGraph ilcfg_;
+	ILControlFlowGraph* ilcfg_;
 
 	struct AbstractExprStack
 	{

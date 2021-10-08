@@ -63,6 +63,8 @@
     <ClCompile Include="il-cfg.cpp" />
     <ClCompile Include="lifter.cpp" />
     <ClCompile Include="il-disasm.cpp" />
+    <ClCompile Include="structurizer.cpp" />
+    <ClCompile Include="code-writer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="third_party\zlib\crc32.h">
@@ -107,5 +109,8 @@
     <ClInclude Include="lifter.h" />
     <ClInclude Include="il-cfg.h" />
     <ClInclude Include="il-disasm.h" />
+    <ClInclude Include="structurizer.h" />
+    <ClInclude Include="code-writer.h" />
+    <ClInclude Include="statement.h" />
   </ItemGroup>
 </Project>

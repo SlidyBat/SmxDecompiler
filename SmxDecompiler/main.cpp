@@ -1,13 +1,16 @@
+#include <iostream>
 #include "smx-file.h"
 #include "smx-disasm.h"
 #include "cfg-builder.h"
 #include "lifter.h"
 #include "il-disasm.h"
+#include "structurizer.h"
+#include "code-writer.h"
 
 int main()
 {
 	SmxFile smx( "tests/test.smx" );
-	const SmxFunction* func = smx.FindFunctionByName( "OnAdminMenuReady" );
+	const SmxFunction* func = smx.FindFunctionByName( "OnPluginStart" );
 	printf( "Function %s\n", func->name );
 	SmxDisassembler disassembler( smx );
 	puts( disassembler.DisassembleFunction( *func ).c_str() );
@@ -31,11 +34,11 @@ int main()
 	//}
 
 	PcodeLifter lifter( smx );
-	ILControlFlowGraph ilcfg = lifter.Lift( cfg );
+	ILControlFlowGraph* ilcfg = lifter.Lift( cfg );
 	ILDisassembler il_disassembler( smx );
-	for( size_t i = 0; i < ilcfg.num_blocks(); i++ )
+	for( size_t i = 0; i < ilcfg->num_blocks(); i++ )
 	{
-		const ILBlock& bb = ilcfg.block( i );
+		const ILBlock& bb = ilcfg->block( i );
 		std::string disasm = il_disassembler.DisassembleBlock( bb );
 		printf( "===== BB%zi =====\n", bb.id() );
 		for( size_t in = 0; in < bb.num_in_edges(); in++ )
@@ -56,6 +59,15 @@ int main()
 		}
 		printf( "%s\n", disasm.c_str() );
 	}
+
+	printf( "\n\n" );
+
+	Structurizer structurizer( ilcfg );
+	Statement* func_stmt = structurizer.Transform();
+
+	CodeWriter writer( smx, "OnPluginStart" );
+	std::string code = writer.Build( func_stmt );
+	std::cout << code;
 
 	return 0;
 }

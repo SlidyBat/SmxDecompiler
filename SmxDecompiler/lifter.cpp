@@ -4,45 +4,46 @@
 #include "smx-opcodes.h"
 #include <cassert>
 
-ILControlFlowGraph PcodeLifter::Lift( const ControlFlowGraph& cfg )
+ILControlFlowGraph* PcodeLifter::Lift( const ControlFlowGraph& cfg )
 {
 	num_temps_ = 0;
 
-	ilcfg_.SetNumArgs( cfg.nargs() );
+	ilcfg_ = new ILControlFlowGraph;
+	ilcfg_->SetNumArgs( cfg.nargs() );
 
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
 		BasicBlock& bb = cfg.block( i );
-		ilcfg_.AddBlock( bb.id(), (cell_t)((intptr_t)bb.start() - (intptr_t)smx_->code()) );
+		ilcfg_->AddBlock( bb.id(), (cell_t)((intptr_t)bb.start() - (intptr_t)smx_->code()) );
 	}
 
-	block_stacks_.resize( ilcfg_.num_blocks() );
+	block_stacks_.resize( ilcfg_->num_blocks() );
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
 		BasicBlock& bb = cfg.block( i );
-		ILBlock& ilbb = ilcfg_.block( i );
+		ILBlock& ilbb = ilcfg_->block( i );
 		LiftBlock( bb, ilbb );
 	}
 
-	ilcfg_.ComputeDominance();
+	ilcfg_->ComputeDominance();
 
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
-		ILBlock& ilbb = ilcfg_.block( i );
+		ILBlock& ilbb = ilcfg_->block( i );
 		CleanCalls( ilbb );
 	}
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
-		ILBlock& ilbb = ilcfg_.block( i );
+		ILBlock& ilbb = ilcfg_->block( i );
 		PruneVarsInBlock( ilbb );
 	}
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
-		ILBlock& ilbb = ilcfg_.block( i );
+		ILBlock& ilbb = ilcfg_->block( i );
 		MovePhis( ilbb );
 	}
 
-	return std::move( ilcfg_ );
+	return ilcfg_;
 }
 
 void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
@@ -54,8 +55,8 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 	for( size_t i = 0; i < bb.num_out_edges(); i++ )
 	{
 		BasicBlock* out = bb.out_edge( i );
-		ILBlock& ilout = ilcfg_.block( out->id() );
-		ilbb.AddTarget( &ilout );
+		ILBlock& ilout = ilcfg_->block( out->id() );
+		ilbb.AddTarget( ilout );
 	}
 
 	for( size_t i = 0; i < bb.num_in_edges(); i++ )
@@ -111,8 +112,8 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 		const cell_t* next_instr = instr + info.num_params + 1;
 
 		auto handle_jmp = [&]( ILBinary* cmp ) {
-			ILBlock* true_branch = ilcfg_.FindBlockAt( params[0] );
-			ILBlock* false_branch = ilcfg_.FindBlockAt( (cell_t)((intptr_t)next_instr - (intptr_t)smx_->code()) );
+			ILBlock* true_branch = ilcfg_->FindBlockAt( params[0] );
+			ILBlock* false_branch = ilcfg_->FindBlockAt( (cell_t)((intptr_t)next_instr - (intptr_t)smx_->code()) );
 			assert( true_branch && false_branch );
 			ilbb.Add( new ILJumpCond( cmp, true_branch, false_branch ) );
 		};
@@ -121,7 +122,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 		{
 			case SMX_OP_PROC:
 			{
-				for( int i = 0; i < ilcfg_.nargs(); i++ )
+				for( int i = 0; i < ilcfg_->nargs(); i++ )
 				{
 					Push( nullptr );
 				}
@@ -693,7 +694,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 
 			case SMX_OP_JUMP:
-				ilbb.Add( new ILJump( ilcfg_.FindBlockAt( params[0] ) ) );
+				ilbb.Add( new ILJump( ilcfg_->FindBlockAt( params[0] ) ) );
 				break;
 			case SMX_OP_JZER:
 				handle_jmp( new ILBinary( pri, ILBinary::EQ, new ILConst( 0 ) ) );
@@ -810,7 +811,7 @@ void PcodeLifter::MovePhis( ILBlock& ilbb )
 
 ILLocalVar* PcodeLifter::Push( ILNode* value )
 {
-	int offset = (ilcfg_.nargs() + 3) - (int)expr_stack_->stack.size() - 1;
+	int offset = (ilcfg_->nargs() + 3) - (int)expr_stack_->stack.size() - 1;
 	expr_stack_->stack.push_back( new ILLocalVar( offset * 4, value ) );
 	return expr_stack_->stack.back();
 }
@@ -832,7 +833,7 @@ ILLocalVar* PcodeLifter::GetFrameVar( int offset )
 {
 	assert( expr_stack_ );
 	
-	return expr_stack_->stack[(ilcfg_.nargs() + 3) - 1 - offset/4];
+	return expr_stack_->stack[(ilcfg_->nargs() + 3) - 1 - offset/4];
 }
 
 ILNode* PcodeLifter::GetFrameVal( int offset )

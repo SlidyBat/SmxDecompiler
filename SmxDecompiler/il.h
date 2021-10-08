@@ -6,6 +6,7 @@
 #include <string>
 #include <cassert>
 
+class ILBlock;
 class ILConst;
 class ILUnary;
 class ILBinary;
@@ -22,6 +23,7 @@ class ILCall;
 class ILNative;
 class ILRet;
 class ILPhi;
+class ILInterval;
 
 class ILVisitor
 {
@@ -44,6 +46,7 @@ public:
 	virtual void VisitNative( ILNative* node ) {}
 	virtual void VisitRet( ILRet* node ) {}
 	virtual void VisitPhi( ILPhi* node ) {}
+	virtual void VisitInterval( ILInterval* node ) {}
 };
 
 class ILNode
@@ -467,4 +470,16 @@ public:
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitPhi( this ); }
 private:
 	std::vector<ILNode*> inputs_;
+};
+
+class ILInterval : public ILNode
+{
+public:
+	ILInterval( ILBlock* block ) : inner_( block ) {}
+	
+	ILBlock* block() { return inner_; }
+
+	virtual void Accept( ILVisitor* visitor ) { visitor->VisitInterval( this ); }
+private:
+	ILBlock* inner_;
 };

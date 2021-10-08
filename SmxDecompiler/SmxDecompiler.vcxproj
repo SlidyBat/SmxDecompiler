@@ -156,6 +156,7 @@
   <ItemGroup>
     <ClCompile Include="cfg-builder.cpp" />
     <ClCompile Include="cfg.cpp" />
+    <ClCompile Include="code-writer.cpp" />
     <ClCompile Include="il-cfg.cpp" />
     <ClCompile Include="il-disasm.cpp" />
     <ClCompile Include="lifter.cpp" />
@@ -163,6 +164,7 @@
     <ClCompile Include="smx-disasm.cpp" />
     <ClCompile Include="smx-file.cpp" />
     <ClCompile Include="smx-opcodes.cpp" />
+    <ClCompile Include="structurizer.cpp" />
     <ClCompile Include="third_party\zlib\adler32.c" />
     <ClCompile Include="third_party\zlib\compress.c" />
     <ClCompile Include="third_party\zlib\crc32.c" />
@@ -182,6 +184,7 @@
   <ItemGroup>
     <ClInclude Include="cfg-builder.h" />
     <ClInclude Include="cfg.h" />
+    <ClInclude Include="code-writer.h" />
     <ClInclude Include="il-cfg.h" />
     <ClInclude Include="il-disasm.h" />
     <ClInclude Include="il.h" />
@@ -189,6 +192,8 @@
     <ClInclude Include="smx-disasm.h" />
     <ClInclude Include="smx-file.h" />
     <ClInclude Include="smx-opcodes.h" />
+    <ClInclude Include="statement.h" />
+    <ClInclude Include="structurizer.h" />
     <ClInclude Include="third_party\zlib\crc32.h" />
     <ClInclude Include="third_party\zlib\deflate.h" />
     <ClInclude Include="third_party\zlib\gzguts.h" />
