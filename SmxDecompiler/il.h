@@ -21,7 +21,7 @@ class ILJump;
 class ILJumpCond;
 class ILCall;
 class ILNative;
-class ILRet;
+class ILReturn;
 class ILPhi;
 class ILInterval;
 
@@ -44,7 +44,7 @@ public:
 	virtual void VisitJumpCond( ILJumpCond* node ) {}
 	virtual void VisitCall( ILCall* node ) {}
 	virtual void VisitNative( ILNative* node ) {}
-	virtual void VisitRet( ILRet* node ) {}
+	virtual void VisitReturn( ILReturn* node ) {}
 	virtual void VisitPhi( ILPhi* node ) {}
 	virtual void VisitInterval( ILInterval* node ) {}
 };
@@ -454,10 +454,16 @@ private:
 	cell_t native_index_;
 };
 
-class ILRet : public ILNode
+class ILReturn : public ILNode
 {
 public:
-	virtual void Accept( ILVisitor* visitor ) { visitor->VisitRet( this ); }
+	ILReturn( ILNode* value ) : value_( value ) {}
+
+	ILNode* value() { return value_; }
+
+	virtual void Accept( ILVisitor* visitor ) { visitor->VisitReturn( this ); }
+private:
+	ILNode* value_;
 };
 
 class ILPhi : public ILNode

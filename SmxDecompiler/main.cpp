@@ -10,7 +10,7 @@
 int main()
 {
 	SmxFile smx( "tests/test.smx" );
-	const SmxFunction* func = smx.FindFunctionByName( "OnPluginStart" );
+	const SmxFunction* func = smx.FindFunctionByName( "Return10" );
 	printf( "Function %s\n", func->name );
 	SmxDisassembler disassembler( smx );
 	puts( disassembler.DisassembleFunction( *func ).c_str() );
@@ -65,7 +65,7 @@ int main()
 	Structurizer structurizer( ilcfg );
 	Statement* func_stmt = structurizer.Transform();
 
-	CodeWriter writer( smx, "OnPluginStart" );
+	CodeWriter writer( smx, "Return10" );
 	std::string code = writer.Build( func_stmt );
 	std::cout << code;
 

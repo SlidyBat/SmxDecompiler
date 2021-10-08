@@ -225,9 +225,11 @@ void ILDisassembler::VisitNative( ILNative* node )
 	disasm_ << ")";
 }
 
-void ILDisassembler::VisitRet( ILRet* node )
+void ILDisassembler::VisitReturn( ILReturn* node )
 {
-	disasm_ << "ret";
+	disasm_ << "return";
+	if( node->value() )
+		disasm_ << " " << Visit(node->value());
 }
 
 void ILDisassembler::VisitPhi( ILPhi* node )

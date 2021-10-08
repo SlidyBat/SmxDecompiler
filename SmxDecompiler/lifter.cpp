@@ -728,7 +728,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 			case SMX_OP_RETN:
 			{
-				ilbb.Add( new ILRet() );
+				ilbb.Add( new ILReturn( pri ) );
 				break;
 			}
 			case SMX_OP_BREAK:

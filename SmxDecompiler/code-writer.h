@@ -29,7 +29,7 @@ public:
 	virtual void VisitJumpCond( ILJumpCond* node ) override;
 	virtual void VisitCall( ILCall* node ) override;
 	virtual void VisitNative( ILNative* node ) override;
-	virtual void VisitRet( ILRet* node ) override;
+	virtual void VisitReturn( ILReturn* node ) override;
 	virtual void VisitPhi( ILPhi* node ) override;
 	virtual void VisitInterval( ILInterval* node ) override;
 private:

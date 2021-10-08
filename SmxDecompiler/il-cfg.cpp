@@ -196,7 +196,7 @@ void ILControlFlowGraph::NewEpoch()
 void ILBlock::Prepend( ILNode* node )
 {
 	if( !nodes_.empty() &&
-		(dynamic_cast<ILJump*>(nodes_.back()) || dynamic_cast<ILJumpCond*>(nodes_.back()) || dynamic_cast<ILRet*>(nodes_.back())) )
+		(dynamic_cast<ILJump*>(nodes_.back()) || dynamic_cast<ILJumpCond*>(nodes_.back()) || dynamic_cast<ILReturn*>(nodes_.back())) )
 	{
 		nodes_.insert( nodes_.end() - 1, node );
 	}

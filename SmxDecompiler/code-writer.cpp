@@ -8,7 +8,12 @@ CodeWriter::CodeWriter( SmxFile& smx, const char* function ) :
 
 std::string CodeWriter::Build( Statement* stmt )
 {
+	code_ << "public int " << func_->name << "()\n";
+	code_ << "{\n";
+	Indent();
 	stmt->Accept( this );
+	Dedent();
+	code_ << "}\n";
 	return code_.str();
 }
 
@@ -255,9 +260,12 @@ void CodeWriter::VisitNative( ILNative* node )
 	code_ << ")";
 }
 
-void CodeWriter::VisitRet( ILRet* node )
+void CodeWriter::VisitReturn( ILReturn* node )
 {
+
 	code_ << "return";
+	if( node->value() )
+		code_ << " " << Build(node->value());
 }
 
 void CodeWriter::VisitPhi( ILPhi* node )
