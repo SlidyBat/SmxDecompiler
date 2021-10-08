@@ -2,6 +2,7 @@
 
 #include "smx-disasm.h"
 #include <algorithm>
+#include <cassert>
 
 BasicBlock::BasicBlock( const ControlFlowGraph& cfg, const cell_t* start )
 	:
@@ -64,8 +65,29 @@ BasicBlock* ControlFlowGraph::FindBlockAt( const cell_t* addr )
 	return nullptr;
 }
 
+void ControlFlowGraph::Remove( size_t block_index )
+{
+	blocks_.erase( blocks_.begin() + block_index );
+}
+
 void ControlFlowGraph::ComputeOrdering()
 {
+	// Prune blocks with no input edges (other than the entry node)
+	// This happens with casetbl instruction, which is never meant to actually be executed
+	if( !blocks_.empty() )
+	{
+		for( size_t i = blocks_.size() - 1; i > 0; i-- )
+		{
+			BasicBlock& b = blocks_[i];
+			if( b.num_in_edges() == 0 )
+			{
+				assert( b.start()[0] == SMX_OP_CASETBL );
+				Remove( i );
+			}
+		}
+	}
+
+
 	ordered_blocks_.reserve( blocks_.size() );
 	for( BasicBlock& bb : blocks_ )
 	{

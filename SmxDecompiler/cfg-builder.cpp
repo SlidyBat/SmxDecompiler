@@ -56,7 +56,7 @@ ControlFlowGraph CfgBuilder::Build( const cell_t* entry )
 				curr_block->AddTarget( cfg_.FindBlockAt( def ) );
 				for( cell_t i = 0; i < ncases; i++ )
 				{
-					cell_t* target = smx_->code( casetbl[2 + i * 2 + 1] );
+					cell_t* target = smx_->code( casetbl[3 + i * 2 + 1] );
 					curr_block->AddTarget( cfg_.FindBlockAt( target ) );
 				}
 				break;
@@ -125,6 +125,7 @@ void CfgBuilder::MarkLeaders( const cell_t* entry )
 			{
 				cell_t* target = smx_->code( instr[1] );
 				AddLeader( target );
+				AddLeader( NextInstruction( instr ) );
 				break;
 			}
 			case SMX_OP_JEQ:
@@ -149,9 +150,10 @@ void CfgBuilder::MarkLeaders( const cell_t* entry )
 				AddLeader( def );
 				for( cell_t i = 0; i < ncases; i++ )
 				{
-					cell_t* target = smx_->code( casetbl[2 + i * 2 + 1] );
+					cell_t* target = smx_->code( casetbl[3 + i * 2 + 1] );
 					AddLeader( target );
 				}
+				AddLeader( NextInstruction( instr ) );
 				break;
 			}
 			case SMX_OP_ENDPROC:

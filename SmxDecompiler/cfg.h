@@ -53,6 +53,7 @@ public:
 
 	size_t num_blocks() const { return ordered_blocks_.size(); }
 	BasicBlock& block( size_t index ) const { return *ordered_blocks_[index]; }
+	void Remove( size_t block_index );
 
 	void ComputeOrdering();
 private:
