@@ -160,9 +160,6 @@ void CodeWriter::VisitBinary( ILBinary* node )
 
 void CodeWriter::VisitLocalVar( ILLocalVar* node )
 {
-	if( level_ == 1 )
-		code_ << "int ";
-
 	bool found_name = false;
 	if( func_ )
 	{
@@ -170,6 +167,8 @@ void CodeWriter::VisitLocalVar( ILLocalVar* node )
 		{
 			if( func_->locals[i].address == node->stack_offset() )
 			{
+				if( level_ == 1 )
+					code_ << Type( func_->locals[i].type ) << ' ';
 				code_ << func_->locals[i].name;
 				found_name = true;
 				break;
@@ -179,7 +178,7 @@ void CodeWriter::VisitLocalVar( ILLocalVar* node )
 
 	if( !found_name )
 	{
-		code_ << "local_" << node->stack_offset();
+		code_ << Type( node ) << "local_" << node->stack_offset();
 	}
 
 	if( node->value() && level_ == 1 )
@@ -212,7 +211,7 @@ void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )
 
 void CodeWriter::VisitTempVar( ILTempVar* node )
 {
-	code_ << "int tmp_" << node->index();
+	code_ << Type( node ) << " tmp_" << node->index();
 	if( node->value() && level_ == 1 )
 	{
 		code_ << " = " << Build( node->value() );
@@ -325,6 +324,60 @@ std::string CodeWriter::Build( ILNode* node )
 	node->Accept( this );
 	level_--;
 	return "";
+}
+
+std::string CodeWriter::Type( const SmxVariableType& type )
+{
+	std::stringstream type_str;
+	if( type.is_const )
+	{
+		type_str << "const ";
+	}
+
+	switch( type.tag )
+	{
+		case SmxVariableType::BOOL:
+			type_str << "bool";
+			break;
+		case SmxVariableType::INT:
+			type_str << "int";
+			break;
+		case SmxVariableType::FLOAT:
+			type_str << "float";
+			break;
+		case SmxVariableType::CHAR:
+			type_str << "char";
+			break;
+		case SmxVariableType::ANY:
+			type_str << "any";
+			break;
+	}
+
+	for( int i = 0; i < type.dimcount; i++ )
+	{
+		type_str << "[";
+		if( type.dims[i] )
+			type_str << type.dims[i];
+		type_str << "]";
+	}
+
+	return type_str.str();
+}
+
+const char* CodeWriter::Type( ILVar* var )
+{
+	switch( var->type() )
+	{
+		case ILType::UNKNOWN:
+		case ILType::INT:
+			return "int";
+		case ILType::FLOAT:
+			return "float";
+		case ILType::STRING:
+			return "char[]";
+	}
+
+	return "<err>";
 }
 
 std::string CodeWriter::Tabs()

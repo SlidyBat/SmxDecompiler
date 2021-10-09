@@ -9,6 +9,7 @@ public:
 	CodeWriter( SmxFile& smx, const char* function );
 
 	std::string Build( Statement* stmt );
+	std::string Type( const SmxVariableType& type );
 
 	virtual void VisitBasicStatement( BasicStatement* stmt ) override;
 	virtual void VisitSequenceStatement( SequenceStatement* stmt ) override;
@@ -36,6 +37,8 @@ public:
 private:
 	std::string Build( ILBlock* block );
 	std::string Build( ILNode* node );
+
+	const char* Type( ILVar* var );
 
 	std::string Tabs();
 	void Indent();

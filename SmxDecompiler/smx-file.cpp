@@ -134,6 +134,11 @@ struct smx_rtti_debug_var {
     uint32_t type_id;
 };
 
+static const uint8_t kVarClass_Global = 0x0;
+static const uint8_t kVarClass_Local = 0x1;
+static const uint8_t kVarClass_Static = 0x2;
+static const uint8_t kVarClass_Arg = 0x3;
+
 #if defined __GNUC__
 #    pragma pack()
 #else
@@ -277,6 +282,7 @@ void SmxFile::ReadSections()
     READ_SECTION( ".code",                  ReadCode );
     READ_SECTION( ".data",                  ReadData );
     READ_SECTION( ".names",                 ReadNames );
+    // TODO: Read .natives section
     READ_SECTION( "rtti.data",              ReadRttiData );
     READ_SECTION( "rtti.methods",           ReadRttiMethods );
     READ_SECTION( "rtti.natives",           ReadRttiNatives );
@@ -475,6 +481,8 @@ void SmxFile::ReadDbgGlobals( const char* name, size_t offset, size_t size )
         SmxVariable var;
         var.name = names_ + row->name;
         var.address = row->address;
+        var.type = DecodeVariableType( row->type_id );
+        var.vclass = (SmxVariableClass)row->vclass;
         globals_.push_back( var );
     }
 }
@@ -490,6 +498,187 @@ void SmxFile::ReadDbgLocals( const char* name, size_t offset, size_t size )
         SmxVariable var;
         var.name = names_ + row->name;
         var.address = row->address;
+        var.type = DecodeVariableType( row->type_id );
+        var.vclass = (SmxVariableClass)row->vclass;
         locals_.push_back( var );
     }
+}
+
+// These are control bytes for type signatures.
+//
+// uint32 values are encoded with a variable length encoding:
+//   0x00  - 0x7f:    1 byte
+//   0x80  - 0x7fff:  2 bytes
+//   0x8000 - 0x7fffff: 3 bytes
+//   0x800000 - 0x7fffffff: 4 bytes
+//   0x80000000 - 0xffffffff: 5 bytes
+namespace cb {
+
+    // This section encodes raw types.
+    static const uint8_t kBool = 0x01;
+    static const uint8_t kInt32 = 0x06;
+    static const uint8_t kFloat32 = 0x0c;
+    static const uint8_t kChar8 = 0x0e;
+    static const uint8_t kAny = 0x10;
+    static const uint8_t kTopFunction = 0x11;
+
+    // This section encodes multi-byte raw types.
+
+    // kFixedArray is followed by:
+    //    Size          uint32
+    //    Type          <type>
+    //
+    // kArray is followed by:
+    //    Type          <type>
+    static const uint8_t kFixedArray = 0x30;
+    static const uint8_t kArray = 0x31;
+
+    // kFunction is always followed by the same encoding as in
+    // smx_rtti_method::signature.
+    static const uint8_t kFunction = 0x32;
+
+    // Each of these is followed by an index into an appropriate table.
+    static const uint8_t kEnum = 0x42;       // rtti.enums
+    static const uint8_t kTypedef = 0x43;    // rtti.typedefs
+    static const uint8_t kTypeset = 0x44;    // rtti.typesets
+    static const uint8_t kClassdef = 0x45;   // rtti.classdefs
+    static const uint8_t kEnumStruct = 0x46; // rtti.enumstructs
+
+    // This section encodes special indicator bytes that can appear within multi-
+    // byte types.
+
+    // For function signatures, indicating no return value.
+    static const uint8_t kVoid = 0x70;
+    // For functions, indicating the last argument of a function is variadic.
+    static const uint8_t kVariadic = 0x71;
+    // For parameters, indicating pass-by-ref.
+    static const uint8_t kByRef = 0x72;
+    // For reference and compound types, indicating const.
+    static const uint8_t kConst = 0x73;
+
+} // namespace cb
+
+// A type identifier is a 32-bit value encoding a type. It is encoded as
+// follows:
+//   bits 0-3:  type kind
+//   bits 4-31: type payload
+//
+// The kind is a type signature that can be completely inlined in the
+// remaining 28 bits.
+static const uint8_t kTypeId_Inline = 0x0;
+// The payload is an index into the rtti.data section.
+static const uint8_t kTypeId_Complex = 0x1;
+
+static const uint32_t kMaxTypeIdPayload = 0xfffffff;
+static const uint32_t kMaxTypeIdKind = 0xf;
+
+SmxVariableType SmxFile::DecodeVariableType( uint32_t type_id )
+{
+    uint8_t kind = type_id & 0b1111;
+    uint32_t payload = type_id >> 4;
+
+    char* data;
+    if( kind == kTypeId_Inline )
+    {
+        data = (char*)&payload;
+    }
+    else
+    {
+        data = &rtti_data_[payload];
+    }
+
+    return DecodeVariableType( data );
+}
+
+SmxVariableType SmxFile::DecodeVariableType( char* data )
+{
+    SmxVariableType type;
+
+    if( *data == cb::kConst )
+    {
+        type.is_const = true;
+        data++;
+    }
+
+    char b = *data++;
+    switch( b )
+    {
+        case cb::kBool:
+            type.tag = SmxVariableType::BOOL;
+            break;
+        case cb::kInt32:
+            type.tag = SmxVariableType::INT;
+            break;
+        case cb::kFloat32:
+            type.tag = SmxVariableType::FLOAT;
+            break;
+        case cb::kChar8:
+            type.tag = SmxVariableType::CHAR;
+            break;
+        case cb::kAny:
+            type.tag = SmxVariableType::ANY;
+            break;
+
+        case cb::kArray:
+        {
+            SmxVariableType inner = DecodeVariableType( data );
+            type.dimcount = inner.dimcount + 1;
+            int* dims = new int[type.dimcount];
+            dims[0] = 0;
+            for( int i = 0; i < inner.dimcount; i++ )
+            {
+                dims[i + 1] = inner.dims[i];
+            }
+            type.dims = dims;
+            type.tag = inner.tag;
+            break;
+        }
+        case cb::kFixedArray:
+        {
+            int size = DecodeUint32( &data );
+            SmxVariableType inner = DecodeVariableType( data );
+            type.dimcount = inner.dimcount + 1;
+            int* dims = new int[type.dimcount];
+            dims[0] = size;
+            for( int i = 0; i < inner.dimcount; i++ )
+            {
+                dims[i + 1] = inner.dims[i];
+            }
+            type.dims = dims;
+            type.tag = inner.tag;
+            break;
+        }
+
+        // TODO
+        case cb::kFunction:
+        case cb::kEnum:
+        case cb::kTypedef:
+        case cb::kTypeset:
+        case cb::kClassdef:
+        case cb::kEnumStruct:
+        case cb::kVoid:
+        case cb::kVariadic:
+        case cb::kByRef:
+        case cb::kConst:
+            break;
+    }
+
+    return type;
+}
+
+uint32_t SmxFile::DecodeUint32( char** data )
+{
+    char*& d = *data;
+
+    uint32_t value = 0;
+    uint32_t shift = 0;
+    while( true )
+    {
+        char b = *d++;
+        value |= (b & 0x7f) << shift;
+        if( (b & 0x80) == 0 )
+            break;
+        shift += 7;
+    }
+    return value;
 }

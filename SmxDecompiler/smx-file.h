@@ -18,10 +18,36 @@ struct SmxFunctionSignature
 	bool varargs;
 };
 
+struct SmxVariableType
+{
+	enum SmxVariableTag
+	{
+		BOOL = 0x01,
+		INT = 0x06,
+		FLOAT = 0x0c,
+		CHAR = 0x0e,
+		ANY = 0x10
+	};
+	SmxVariableTag tag = INT;
+	const int* dims = nullptr;
+	int dimcount = 0;
+	bool is_const = false;
+};
+
+enum class SmxVariableClass
+{
+	GLOBAL = 0,
+	LOCAL = 1,
+	STATIC = 2,
+	ARG = 3
+};
+
 struct SmxVariable
 {
 	const char* name;
 	cell_t address;
+	SmxVariableType type;
+	SmxVariableClass vclass;
 };
 
 struct SmxFunction
@@ -123,6 +149,10 @@ private:
 	void ReadDbgMethods( const char* name, size_t offset, size_t size );
 	void ReadDbgGlobals( const char* name, size_t offset, size_t size );
 	void ReadDbgLocals( const char* name, size_t offset, size_t size );
+
+	SmxVariableType DecodeVariableType( uint32_t type_id );
+	SmxVariableType DecodeVariableType( char* data );
+	uint32_t DecodeUint32( char** data );
 private:
 	std::unique_ptr<char[]> image_;
 	char* stringtab_ = nullptr;

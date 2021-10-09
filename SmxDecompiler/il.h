@@ -51,6 +51,14 @@ public:
 	virtual void VisitInterval( ILInterval* node ) {}
 };
 
+enum class ILType
+{
+	UNKNOWN,
+	INT,
+	FLOAT,
+	STRING
+};
+
 class ILNode
 {
 public:
@@ -216,7 +224,13 @@ private:
 };
 
 class ILVar : public ILNode
-{};
+{
+public:
+	ILType type() const { return type_; }
+	void SetType( ILType type ) { type_ = type; }
+private:
+	ILType type_ = ILType::UNKNOWN;
+};
 
 class ILLocalVar : public ILVar
 {
