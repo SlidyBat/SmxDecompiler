@@ -178,7 +178,11 @@ Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb )
 		else
 		{
 			assert( bb->num_out_edges() == 2 );
-			return nullptr;
+			auto* jmp = static_cast<ILJumpCond*>( bb->Last() );
+			return new IfStatement( jmp->condition(),
+				CreateStatement( jmp->true_branch() ),
+				CreateStatement( jmp->false_branch() ) );
+
 		}
 	}
 	else

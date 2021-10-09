@@ -9,65 +9,36 @@
 
 int main()
 {
-	SmxFile smx( "tests/test.smx" );
-	const SmxFunction* func = smx.FindFunctionByName( "Return10" );
-	printf( "Function %s\n", func->name );
-	SmxDisassembler disassembler( smx );
-	puts( disassembler.DisassembleFunction( *func ).c_str() );
-
-	CfgBuilder builder( smx );
-	ControlFlowGraph cfg = builder.Build( smx.code( func->pcode_start ) );
-	//for( size_t i = 0; i < cfg.num_blocks(); i++ )
-	//{
-	//	const BasicBlock& bb = cfg.block( i );
-	//	std::string disasm = disassembler.DisassembleBlock( bb );
-	//	printf( "===== BB%i =====\n", bb.id() );
-	//	for( size_t in = 0; in < bb.num_in_edges(); in++ )
-	//	{
-	//		printf( "> Incoming edge: BB%i\n", bb.in_edge( in )->id() );
-	//	}
-	//	for( size_t out = 0; out < bb.num_out_edges(); out++ )
-	//	{
-	//		printf( "> Outgoing edge: BB%i\n", bb.out_edge( out )->id() );
-	//	}
-	//	printf( "%s\n", disasm.c_str() );
-	//}
-
-	PcodeLifter lifter( smx );
-	ILControlFlowGraph* ilcfg = lifter.Lift( cfg );
-	ILDisassembler il_disassembler( smx );
-	for( size_t i = 0; i < ilcfg->num_blocks(); i++ )
+	SmxFile smx( "tests/test2.smx" );
+	
+	for( size_t i = 0; i < smx.num_globals(); i++ )
 	{
-		const ILBlock& bb = ilcfg->block( i );
-		std::string disasm = il_disassembler.DisassembleBlock( bb );
-		printf( "===== BB%zi =====\n", bb.id() );
-		for( size_t in = 0; in < bb.num_in_edges(); in++ )
-		{
-			printf( "> Incoming edge: BB%zi\n", bb.in_edge( in ).id() );
-		}
-		for( size_t out = 0; out < bb.num_out_edges(); out++ )
-		{
-			printf( "> Outgoing edge: BB%zi\n", bb.out_edge( out ).id() );
-		}
-		for( ILBlock* p = bb.idom(); ; p = p->idom() )
-		{
-			printf( "> Dominator: BB%zi\n", p->id() );
-			if( p == p->idom() )
-			{
-				break;
-			}
-		}
-		printf( "%s\n", disasm.c_str() );
+		SmxVariable& var = smx.global( i );
+		CodeWriter writer( smx, "" );
+		std::cout << writer.Type( var.type ) << " " << var.name << ';' << std::endl;
 	}
+	std::cout << std::endl;
 
-	printf( "\n\n" );
+	for( size_t i = 0; i < smx.num_functions(); i++ )
+	{
+		SmxFunction& func = smx.function( i );
 
-	Structurizer structurizer( ilcfg );
-	Statement* func_stmt = structurizer.Transform();
+		SmxDisassembler disasm( smx );
+		puts( disasm.DisassembleFunction( func ).c_str() );
 
-	CodeWriter writer( smx, "Return10" );
-	std::string code = writer.Build( func_stmt );
-	std::cout << code;
+		CfgBuilder builder( smx );
+		ControlFlowGraph cfg = builder.Build( smx.code( func.pcode_start ) );
+
+		PcodeLifter lifter( smx );
+		ILControlFlowGraph* ilcfg = lifter.Lift( cfg );
+
+		Structurizer structurizer( ilcfg );
+		Statement* func_stmt = structurizer.Transform();
+
+		CodeWriter writer( smx, func.name );
+		std::string code = writer.Build( func_stmt );
+		std::cout << code << std::endl;
+	}
 
 	return 0;
 }
