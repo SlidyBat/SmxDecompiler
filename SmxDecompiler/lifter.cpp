@@ -47,6 +47,11 @@ ILControlFlowGraph* PcodeLifter::Lift( const ControlFlowGraph& cfg )
 		ILBlock& ilbb = ilcfg_->block( i );
 		CleanStores( ilbb );
 	}
+	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	{
+		ILBlock& ilbb = ilcfg_->block( i );
+		CleanIncAndDec( ilbb );
+	}
 
 	return ilcfg_;
 }
@@ -866,6 +871,32 @@ void PcodeLifter::CleanStores( ILBlock& ilbb )
 						decl_var->SetValue( store->val() );
 						ilbb.Remove( i );
 					}
+				}
+			}
+		}
+	}
+}
+
+void PcodeLifter::CleanIncAndDec( ILBlock& ilbb )
+{
+	// INC/DEC instructions should not be a part of a store since the
+	// store is implicit, however in the pcode the store is explicit
+	//
+	// This results in code that looks like this:
+	// `i = ++i`
+	// 
+	// When we actually want:
+	// `++i`
+	//
+	for( int i = (int)ilbb.num_nodes() - 1; i >= 0; i-- )
+	{
+		if( auto* store = dynamic_cast<ILStore*>(ilbb.node( i )) )
+		{
+			if( auto* unary = dynamic_cast<ILUnary*>(store->val()) )
+			{
+				if( unary->op() == ILUnary::INC || unary->op() == ILUnary::DEC )
+				{
+					ilbb.Replace( i, unary );
 				}
 			}
 		}
