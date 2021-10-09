@@ -59,6 +59,29 @@ void CodeWriter::VisitWhileStatement( WhileStatement* stmt )
 	code_ << Tabs() << "}\n";
 }
 
+void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
+{
+	code_ << Tabs() << "switch (" << Build( stmt->value() ) << ")\n";
+	code_ << Tabs() << "{\n";
+	Indent();
+	for( size_t i = 0; i < stmt->num_cases(); i++ )
+	{
+		code_ << Tabs() << "case " << stmt->case_entry( i ).value << ":\n";
+		Indent();
+		stmt->case_entry( i ).body->Accept( this );
+		Dedent();
+	}
+
+	if( stmt->default_case() )
+	{
+		code_ << Tabs() << "default:\n";
+		Indent();
+		stmt->default_case()->Accept( this );
+		Dedent();
+	}
+	Dedent();
+}
+
 void CodeWriter::VisitConst( ILConst* node )
 {
 	code_ << node->value();

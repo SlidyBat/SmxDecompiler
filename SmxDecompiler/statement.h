@@ -9,13 +9,15 @@ enum class StatementType
 	SEQUENCE,
 	IF,
 	WHILE,
-	DO_WHILE
+	DO_WHILE,
+	SWITCH
 };
 
 class BasicStatement;
 class SequenceStatement;
 class IfStatement;
 class WhileStatement;
+class SwitchStatement;
 
 class StatementVisitor
 {
@@ -24,6 +26,7 @@ public:
 	virtual void VisitSequenceStatement( SequenceStatement* stmt ) = 0;
 	virtual void VisitIfStatement( IfStatement* stmt ) = 0;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) = 0;
+	virtual void VisitSwitchStatement( SwitchStatement* stmt ) = 0;
 };
 
 class Statement
@@ -107,4 +110,32 @@ public:
 private:
 	ILNode* condition_;
 	Statement* body_;
+};
+
+struct CaseStatement
+{
+	cell_t value;
+	Statement* body;
+};
+
+class SwitchStatement : public Statement
+{
+public:
+	SwitchStatement( ILNode* value, Statement* default_case, std::vector<CaseStatement> cases ) :
+		Statement( StatementType::WHILE ),
+		value_( value ),
+		default_case_( default_case ),
+		cases_( std::move( cases ) )
+	{}
+
+	ILNode* value() { return value_; }
+	Statement* default_case() { return default_case_; }
+	size_t num_cases() const { return cases_.size(); }
+	const CaseStatement& case_entry( size_t index ) const { return cases_[index]; }
+
+	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitSwitchStatement( this ); }
+private:
+	ILNode* value_;
+	Statement* default_case_;
+	std::vector<CaseStatement> cases_;
 };

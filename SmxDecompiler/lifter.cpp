@@ -726,16 +726,41 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				handle_jmp( new ILBinary( pri, ILBinary::SGEQ, alt ) );
 				break;
 
+
+			case SMX_OP_SWITCH:
+			{
+				cell_t* casetbl = smx_->code( params[0] );
+				assert( casetbl[0] == SMX_OP_CASETBL );
+				cell_t num_cases = casetbl[1];
+				ILBlock* default_case = ilcfg_->FindBlockAt( casetbl[2] );
+				std::vector<CaseTableEntry> cases;
+				cases.reserve( num_cases );
+				for( cell_t i = 0; i < num_cases; i++ )
+				{
+					CaseTableEntry entry;
+					entry.value = casetbl[3 + i * 2];
+					entry.address = ilcfg_->FindBlockAt( casetbl[3 + i * 2 + 1] );
+				}
+				ilbb.Add( new ILSwitch( pri, default_case, std::move( cases ) ) );
+				break;
+			}
+
 			case SMX_OP_RETN:
 			{
 				ilbb.Add( new ILReturn( pri ) );
 				break;
 			}
+
+			case SMX_OP_MOVS:
+				break;
+
+			case SMX_OP_NONE:
 			case SMX_OP_BREAK:
+			case SMX_OP_BOUNDS:
 				break;
 
 			default:
-				assert( 0 );
+				assert( 0 && "Unhandled opcode" && op );
 				break;
 		}
 

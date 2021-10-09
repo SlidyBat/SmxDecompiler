@@ -179,6 +179,18 @@ void ILDisassembler::VisitJumpCond( ILJumpCond* node )
 	disasm_ << "if " << Visit( node->condition() ) << " goto BB" << node->true_branch()->id() << " else BB" << node->false_branch()->id();
 }
 
+void ILDisassembler::VisitSwitch( ILSwitch* node )
+{
+	disasm_ << "switch " << Visit( node->value() );
+	for( size_t i = 0; i < node->num_cases(); i++ )
+	{
+		disasm_ << "\ncase " << node->case_entry( i ).value << " goto BB" << node->case_entry( i ).address->id();
+	}
+	
+	if( node->default_case() )
+		disasm_ << "\ndefault goto BB" << node->default_case()->id();
+}
+
 void ILDisassembler::VisitCall( ILCall* node )
 {
 	if( SmxFunction* func = smx_->FindFunctionAt( node->addr() ) )

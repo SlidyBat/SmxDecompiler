@@ -19,6 +19,7 @@ class ILLoad;
 class ILStore;
 class ILJump;
 class ILJumpCond;
+class ILSwitch;
 class ILCall;
 class ILNative;
 class ILReturn;
@@ -42,6 +43,7 @@ public:
 	virtual void VisitStore( ILStore* node ) {}
 	virtual void VisitJump( ILJump* node ) {}
 	virtual void VisitJumpCond( ILJumpCond* node ) {}
+	virtual void VisitSwitch( ILSwitch* node ) {}
 	virtual void VisitCall( ILCall* node ) {}
 	virtual void VisitNative( ILNative* node ) {}
 	virtual void VisitReturn( ILReturn* node ) {}
@@ -404,6 +406,34 @@ private:
 	ILNode* condition_;
 	ILBlock* true_branch_;
 	ILBlock* false_branch_;
+};
+
+struct CaseTableEntry
+{
+	cell_t value;
+	ILBlock* address;
+};
+
+class ILSwitch : public ILNode
+{
+public:
+	ILSwitch( ILNode* value, ILBlock* default_case, std::vector<CaseTableEntry> cases )
+		:
+		value_( value ),
+		default_case_( default_case ),
+		cases_( std::move( cases ) )
+	{}
+
+	ILNode* value() { return value_; }
+	ILBlock* default_case() { return default_case_; }
+	CaseTableEntry& case_entry( size_t index ) { return cases_[index]; }
+	size_t num_cases() const { return cases_.size(); }
+
+	virtual void Accept( ILVisitor* visitor ) { visitor->VisitSwitch( this ); }
+private:
+	ILNode* value_;
+	ILBlock* default_case_;
+	std::vector<CaseTableEntry> cases_;
 };
 
 class ILCallable : public ILNode

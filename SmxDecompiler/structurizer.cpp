@@ -160,7 +160,22 @@ Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb )
 {
 	if( bb->num_out_edges() > 0 )
 	{
-		if( bb->num_out_edges() == 1 )
+		if( auto* switch_node = dynamic_cast<ILSwitch*>(bb->Last()) )
+		{
+			ILNode* value = switch_node->value();
+			Statement* default_case = CreateStatement( switch_node->default_case() );
+			std::vector<CaseStatement> cases;
+			cases.reserve( switch_node->num_cases() );
+			for( size_t i = 0; i < switch_node->num_cases(); i++ )
+			{
+				CaseStatement case_entry;
+				case_entry.body = CreateStatement( switch_node->case_entry( i ).address );
+				case_entry.value = switch_node->case_entry( i ).value;
+			}
+
+			return new SwitchStatement( value, default_case, std::move( cases ) );
+		}
+		else if( bb->num_out_edges() == 1 )
 		{
 			// If this is a back edge then 
 			if( bb->IsBackEdge( 0 ) )

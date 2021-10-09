@@ -23,6 +23,7 @@ private:
 	virtual void VisitStore( ILStore* node ) override;
 	virtual void VisitJump( ILJump* node ) override;
 	virtual void VisitJumpCond( ILJumpCond* node ) override;
+	virtual void VisitSwitch( ILSwitch* node ) override;
 	virtual void VisitCall( ILCall* node ) override;
 	virtual void VisitNative( ILNative* node ) override;
 	virtual void VisitReturn( ILReturn* node ) override;
