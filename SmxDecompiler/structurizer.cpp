@@ -146,6 +146,8 @@ Statement* Structurizer::CreateLoopStatement( ILBlock* bb )
 		}
 
 		ILJumpCond* jmp = static_cast<ILJumpCond*>( head->Last() );
+		if( jmp->true_branch() != body )
+			jmp->Invert();
 
 		std::vector<Statement*> statements;
 		statements.push_back( new WhileStatement( jmp->condition(), CreateStatement( body ) ) );
@@ -194,6 +196,7 @@ Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb )
 		{
 			assert( bb->num_out_edges() == 2 );
 			auto* jmp = static_cast<ILJumpCond*>( bb->Last() );
+			jmp->Invert();
 			return new IfStatement( jmp->condition(),
 				CreateStatement( jmp->true_branch() ),
 				CreateStatement( jmp->false_branch() ) );

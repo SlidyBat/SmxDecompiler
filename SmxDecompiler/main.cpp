@@ -22,9 +22,11 @@ int main()
 	for( size_t i = 0; i < smx.num_functions(); i++ )
 	{
 		SmxFunction& func = smx.function( i );
+		//if( strcmp( func.name, "AdminMenu_Rename" ) != 0 )
+		//	continue;
 
-		SmxDisassembler disasm( smx );
-		puts( disasm.DisassembleFunction( func ).c_str() );
+		//SmxDisassembler disasm( smx );
+		//puts( disasm.DisassembleFunction( func ).c_str() );
 
 		CfgBuilder builder( smx );
 		ControlFlowGraph cfg = builder.Build( smx.code( func.pcode_start ) );

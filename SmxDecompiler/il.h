@@ -424,6 +424,46 @@ public:
 	ILBlock* true_branch() { return true_branch_; }
 	ILBlock* false_branch() { return false_branch_; }
 
+	void Invert()
+	{
+		std::swap( true_branch_, false_branch_ );
+		if( auto* binary = dynamic_cast<ILBinary*>(condition_) )
+		{
+			switch( binary->op() )
+			{
+				case ILBinary::EQ:
+					condition_ = new ILBinary( binary->left(), ILBinary::NEQ, binary->right() );
+					return;
+				case ILBinary::NEQ:
+					condition_ = new ILBinary( binary->left(), ILBinary::EQ, binary->right() );
+					return;
+				case ILBinary::SGRTR:
+					condition_ = new ILBinary( binary->left(), ILBinary::SLEQ, binary->right() );
+					return;
+				case ILBinary::SGEQ:
+					condition_ = new ILBinary( binary->left(), ILBinary::SLESS, binary->right() );
+					return;
+				case ILBinary::SLESS:
+					condition_ = new ILBinary( binary->left(), ILBinary::SGEQ, binary->right() );
+					return;
+				case ILBinary::SLEQ:
+					condition_ = new ILBinary( binary->left(), ILBinary::SGRTR, binary->right() );
+					return;
+			}
+		}
+		else if( auto* unary = dynamic_cast<ILUnary*>(condition_) )
+		{
+			switch( unary->op() )
+			{
+				case ILUnary::NOT:
+					condition_ = unary->val();
+					return;
+			}
+		}
+
+		condition_ = new ILUnary( condition_, ILUnary::NOT );
+	}
+
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitJumpCond( this ); }
 private:
 	ILNode* condition_;

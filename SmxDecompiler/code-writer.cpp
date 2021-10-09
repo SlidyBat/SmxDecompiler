@@ -80,6 +80,7 @@ void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
 		Dedent();
 	}
 	Dedent();
+	code_ << Tabs() << "}\n";
 }
 
 void CodeWriter::VisitConst( ILConst* node )
@@ -178,7 +179,9 @@ void CodeWriter::VisitLocalVar( ILLocalVar* node )
 
 	if( !found_name )
 	{
-		code_ << Type( node ) << "local_" << node->stack_offset();
+		if( level_ == 1 )
+			code_ << Type( node ) << ' ';
+		code_ << "local_" << -node->stack_offset();
 	}
 
 	if( node->value() && level_ == 1 )
@@ -304,15 +307,13 @@ std::string CodeWriter::Build( ILBlock* block )
 {
 	for( size_t node = 0; node < block->num_nodes(); node++ )
 	{
-		code_ << Tabs();
-		Build( block->node( node ) );
 		if( dynamic_cast<ILJump*>( block->node( node ) ) || dynamic_cast<ILJumpCond*>( block->node( node ) ) )
 		{
-			code_ << '\n';
+			
 		}
 		else
 		{
-			code_ << ";\n";
+			code_ << Tabs() << Build( block->node( node ) ) << ";\n";
 		}
 	}
 	return "";
