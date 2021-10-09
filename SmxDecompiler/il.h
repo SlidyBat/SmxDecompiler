@@ -254,16 +254,16 @@ private:
 class ILGlobalVar : public ILVar
 {
 public:
-	ILGlobalVar( int addr )
+	ILGlobalVar( cell_t addr )
 		:
 		addr_( addr )
 	{}
 
-	int addr() const { return addr_; }
+	cell_t addr() const { return addr_; }
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitGlobalVar( this ); }
 private:
-	int addr_;
+	cell_t addr_;
 };
 
 class ILHeapVar : public ILVar
@@ -288,10 +288,19 @@ public:
 		:
 		base_( base ),
 		index_( index )
-	{}
+	{
+		index->AddUse( this );
+	}
 
 	ILVar* base() { return base_; }
 	ILNode* index() { return index_; }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( index_ == target );
+		replacement->AddUse( this );
+		index_ = replacement;
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitArrayElementVar( this ); }
 private:

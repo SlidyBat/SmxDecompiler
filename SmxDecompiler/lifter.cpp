@@ -299,7 +299,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 			case SMX_OP_LOAD_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( pri );
+				ILVar* var = GetVar( pri );
 				assert( var );
 				pri = new ILLoad( var );
 				break;
@@ -319,7 +319,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 			case SMX_OP_STOR_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( alt );
+				ILVar* var = GetVar( alt );
 				assert( var );
 				ilbb.Add( new ILStore( var, pri ) );
 				break;
@@ -340,14 +340,14 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			
 			case SMX_OP_LODB_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( pri );
+				ILVar* var = GetVar( pri );
 				assert( var );
 				pri = new ILLoad( var, params[0] );
 				break;
 			}
 			case SMX_OP_STRB_I:
 			{
-				ILVar* var = dynamic_cast<ILVar*>( alt );
+				ILVar* var = GetVar( alt );
 				assert( var );
 				ilbb.Add( new ILStore( var, pri, params[0] ) );
 				break;
@@ -355,15 +355,14 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 			case SMX_OP_LIDX:
 			{
-				ILVar* arr = dynamic_cast<ILVar*>( alt );
-				assert( arr );
+				ILVar* arr = GetVar( alt );
 				auto* elem = new ILArrayElementVar( arr, pri );
 				ilbb.Add( new ILLoad( elem ) );
 				break;
 			}
 			case SMX_OP_IDXADDR:
 			{
-				ILVar* arr = dynamic_cast<ILVar*>( alt );
+				ILVar* arr = GetVar( alt );
 				assert( arr );
 				pri = new ILArrayElementVar( arr, pri );
 				break;
@@ -501,8 +500,22 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 			}
 			case SMX_OP_ADD:
-				pri = new ILBinary( pri, ILBinary::ADD, alt );
+			{
+				// Indexing into 2D array will generate add
+				if( auto* var = dynamic_cast<ILVar*>(alt) )
+				{
+					pri = new ILArrayElementVar( var, pri );
+				}
+				else if( auto* var = dynamic_cast<ILVar*>(pri) )
+				{
+					pri = new ILArrayElementVar( var, alt );
+				}
+				else
+				{
+					pri = new ILBinary( pri, ILBinary::ADD, alt );
+				}
 				break;
+			}
 			case SMX_OP_ADD_C:
 			{
 				// add.c is also used to offset into arrays/enum-structs
@@ -943,4 +956,18 @@ void PcodeLifter::SetFrameVal( int offset, ILNode* val )
 ILTempVar* PcodeLifter::MakeTemp( ILNode* value )
 {
 	return new ILTempVar( num_temps_++, value );
+}
+
+ILVar* PcodeLifter::GetVar( ILNode* node ) const
+{
+	// Sometimes a global address gets loaded by its constant address
+	// We don't know if it's a constant or a global address until it
+	// actually gets used, so make that adjustment here
+	if( auto* constant = dynamic_cast<ILConst*>(node) )
+	{
+		node = new ILGlobalVar( constant->value() );
+		constant->ReplaceUsesWith( node );
+	}
+
+	return dynamic_cast<ILVar*>(node);
 }

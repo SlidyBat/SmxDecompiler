@@ -26,6 +26,7 @@ private:
 	ILNode* GetFrameVal( int offset );
 	void SetFrameVal( int offset, ILNode* val );
 	class ILTempVar* MakeTemp( ILNode* value );
+	class ILVar* GetVar( ILNode* node ) const;
 private:
 	const SmxFile* smx_;
 	ILControlFlowGraph* ilcfg_;
