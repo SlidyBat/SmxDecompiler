@@ -418,7 +418,9 @@ public:
 		condition_( condition ),
 		true_branch_( true_branch ),
 		false_branch_( false_branch )
-	{}
+	{
+		condition_->AddUse( this );
+	}
 
 	ILNode* condition() { return condition_; }
 	ILBlock* true_branch() { return true_branch_; }
@@ -462,6 +464,13 @@ public:
 		}
 
 		condition_ = new ILUnary( condition_, ILUnary::NOT );
+	}
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( condition_ == target );
+		replacement->AddUse( this );
+		condition_ = replacement;
 	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitJumpCond( this ); }
@@ -550,9 +559,17 @@ private:
 class ILReturn : public ILNode
 {
 public:
-	ILReturn( ILNode* value ) : value_( value ) {}
+	ILReturn( ILNode* value ) : value_( value ) { value->AddUse( this ); }
 
 	ILNode* value() { return value_; }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( value_ == target );
+		if( replacement )
+			replacement->AddUse( this );
+		value_ = replacement;
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitReturn( this ); }
 private:
