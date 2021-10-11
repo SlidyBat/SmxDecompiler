@@ -171,7 +171,9 @@ void ILDisassembler::VisitGlobalVar( ILGlobalVar* node )
 
 void ILDisassembler::VisitHeapVar( ILHeapVar* node )
 {
-	disasm_ << "heap_" << node->size();
+	disasm_ << "heap_" << node->addr();
+	if( top_level_ )
+		disasm_ << " := alloc(" << node->size() << ")";
 }
 
 void ILDisassembler::VisitArrayElementVar( ILArrayElementVar* node )

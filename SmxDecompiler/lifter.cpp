@@ -7,6 +7,7 @@
 ILControlFlowGraph* PcodeLifter::Lift( const ControlFlowGraph& cfg )
 {
 	num_temps_ = 0;
+	heap_addr_ = 0;
 
 	ilcfg_ = new ILControlFlowGraph;
 	ilcfg_->SetNumArgs( cfg.nargs() );
@@ -164,9 +165,14 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 			}
 			case SMX_OP_HEAP:
-				alt = new ILHeapVar( params[0] );
+			{
+				cell_t size = params[0];
+				cell_t addr = heap_addr_;
+				heap_addr_ += size;
+				alt = new ILHeapVar( heap_addr_, size );
 				ilbb.Add( alt );
 				break;
+			}
 			case SMX_OP_FILL:
 				break;
 

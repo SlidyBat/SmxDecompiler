@@ -204,7 +204,9 @@ void CodeWriter::VisitGlobalVar( ILGlobalVar* node )
 
 void CodeWriter::VisitHeapVar( ILHeapVar* node )
 {
-	code_ << "heap_" << node->size();
+	code_ << "heap_" << node->addr();
+	if( level_ == 1 )
+		code_ << " = alloc(" << node->size() << ")";
 }
 
 void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )

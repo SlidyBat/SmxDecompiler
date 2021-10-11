@@ -266,16 +266,19 @@ private:
 class ILHeapVar : public ILVar
 {
 public:
-	ILHeapVar( int size )
+	ILHeapVar( cell_t addr, cell_t size )
 		:
+		addr_( addr ),
 		size_( size )
 	{}
 
-	int size() const { return size_; }
+	cell_t addr() const { return addr_; }
+	cell_t size() const { return size_; }
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitHeapVar( this ); }
 private:
-	int size_;
+	cell_t addr_;
+	cell_t size_;
 };
 
 class ILArrayElementVar : public ILVar
