@@ -43,16 +43,6 @@ ILControlFlowGraph* PcodeLifter::Lift( const ControlFlowGraph& cfg )
 		ILBlock& ilbb = ilcfg_->block( i );
 		MovePhis( ilbb );
 	}
-	for( size_t i = 0; i < cfg.num_blocks(); i++ )
-	{
-		ILBlock& ilbb = ilcfg_->block( i );
-		CleanStores( ilbb );
-	}
-	for( size_t i = 0; i < cfg.num_blocks(); i++ )
-	{
-		ILBlock& ilbb = ilcfg_->block( i );
-		CleanIncAndDec( ilbb );
-	}
 
 	return ilcfg_;
 }
@@ -859,65 +849,6 @@ void PcodeLifter::MovePhis( ILBlock& ilbb )
 
 				// Remove from current block
 				ilbb.Remove( i );
-			}
-		}
-	}
-}
-
-void PcodeLifter::CleanStores( ILBlock& ilbb )
-{
-	// There is a common pattern of declaring a local variable then storing a value into it
-	// e.g.
-	// ```
-	// float x;
-	// x = FloatAdd(a, b);
-	// ```
-	//
-	// We can clean this up by removing the store and placing its value into the declaration
-	// e.g.
-	// ```
-	// float x = FloatAdd(a, b);
-	//
-	for( int i = (int)ilbb.num_nodes() - 1; i >= 1; i-- )
-	{
-		if( auto* store = dynamic_cast<ILStore*>(ilbb.node( i )) )
-		{
-			if( auto* store_var = dynamic_cast<ILLocalVar*>(store->var()) )
-			{
-				if( auto* decl_var = dynamic_cast<ILLocalVar*>(ilbb.node( i - 1 )) )
-				{
-					if( store_var == decl_var && decl_var->value() == nullptr )
-					{
-						decl_var->SetValue( store->val() );
-						ilbb.Remove( i );
-					}
-				}
-			}
-		}
-	}
-}
-
-void PcodeLifter::CleanIncAndDec( ILBlock& ilbb )
-{
-	// INC/DEC instructions should not be a part of a store since the
-	// store is implicit, however in the pcode the store is explicit
-	//
-	// This results in code that looks like this:
-	// `i = ++i`
-	// 
-	// When we actually want:
-	// `++i`
-	//
-	for( int i = (int)ilbb.num_nodes() - 1; i >= 0; i-- )
-	{
-		if( auto* store = dynamic_cast<ILStore*>(ilbb.node( i )) )
-		{
-			if( auto* unary = dynamic_cast<ILUnary*>(store->val()) )
-			{
-				if( unary->op() == ILUnary::INC || unary->op() == ILUnary::DEC )
-				{
-					ilbb.Replace( i, unary );
-				}
 			}
 		}
 	}

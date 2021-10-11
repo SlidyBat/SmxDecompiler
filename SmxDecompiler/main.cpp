@@ -5,6 +5,7 @@
 #include "lifter.h"
 #include "il-disasm.h"
 #include "typer.h"
+#include "code-fixer.h"
 #include "structurizer.h"
 #include "code-writer.h"
 
@@ -37,6 +38,9 @@ int main()
 
 		Typer typer( smx );
 		typer.PopulateTypes( *ilcfg );
+
+		CodeFixer fixer( smx );
+		fixer.ApplyFixes( *ilcfg );
 
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();

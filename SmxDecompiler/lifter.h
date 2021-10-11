@@ -17,8 +17,6 @@ private:
 	void CleanCalls( ILBlock& ilbb );
 	void PruneVarsInBlock( ILBlock& ilbb );
 	void MovePhis( ILBlock& ilbb );
-	void CleanStores( ILBlock& ilbb );
-	void CleanIncAndDec( ILBlock& ilbb );
 
 	ILLocalVar* Push( ILNode* value );
 	ILLocalVar* Pop();
