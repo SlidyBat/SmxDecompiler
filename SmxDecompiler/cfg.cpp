@@ -79,7 +79,6 @@ void ControlFlowGraph::ComputeOrdering()
 	{
 		if( &bb != &EntryBlock() && bb.num_in_edges() == 0 )
 		{
-			assert( bb.start()[0] == SMX_OP_CASETBL );
 			continue;
 		}
 		

@@ -14,10 +14,11 @@ public:
 	std::string BuildTypedValue( cell_t* val, const SmxVariableType* type );
 
 	virtual void VisitBasicStatement( BasicStatement* stmt ) override;
-	virtual void VisitSequenceStatement( SequenceStatement* stmt ) override;
 	virtual void VisitIfStatement( IfStatement* stmt ) override;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) override;
 	virtual void VisitSwitchStatement( SwitchStatement* stmt ) override;
+	virtual void VisitContinueStatement( ContinueStatement* stmt ) override;
+	virtual void VisitBreakStatement( BreakStatement* stmt ) override;
 	virtual void VisitGotoStatement( GotoStatement* stmt ) override;
 
 	virtual void VisitConst( ILConst* node ) override;

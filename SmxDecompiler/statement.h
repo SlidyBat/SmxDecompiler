@@ -6,36 +6,42 @@
 enum class StatementType
 {
 	BASIC,
-	SEQUENCE,
 	IF,
 	WHILE,
 	DO_WHILE,
 	SWITCH,
+	CONTINUE,
+	BREAK,
 	GOTO
 };
 
 class BasicStatement;
-class SequenceStatement;
 class IfStatement;
 class WhileStatement;
 class SwitchStatement;
+class ContinueStatement;
+class BreakStatement;
 class GotoStatement;
 
 class StatementVisitor
 {
 public:
 	virtual void VisitBasicStatement( BasicStatement* stmt ) = 0;
-	virtual void VisitSequenceStatement( SequenceStatement* stmt ) = 0;
 	virtual void VisitIfStatement( IfStatement* stmt ) = 0;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) = 0;
 	virtual void VisitSwitchStatement( SwitchStatement* stmt ) = 0;
+	virtual void VisitContinueStatement( ContinueStatement* stmt ) = 0;
+	virtual void VisitBreakStatement( BreakStatement* stmt ) = 0;
 	virtual void VisitGotoStatement( GotoStatement* stmt ) = 0;
 };
 
 class Statement
 {
 public:
-	Statement( StatementType type ) : type_( type ) {}
+	Statement( StatementType type, Statement* next ) :
+		type_( type ),
+		next_( next )
+	{}
 	virtual ~Statement() = default;
 
 	virtual void Accept( StatementVisitor* visitor ) = 0;
@@ -44,20 +50,22 @@ public:
 	const char* label() const { return label_.empty() ? nullptr : label_.c_str(); }
 
 	StatementType type() const { return type_; }
+	Statement* next() { return next_; }
 private:
 	StatementType type_;
+	Statement* next_ = nullptr;
 	std::string label_;
 };
 
 class BasicStatement : public Statement
 {
 public:
-	BasicStatement( std::vector<ILNode*> nodes ) :
-		Statement( StatementType::BASIC ),
+	BasicStatement( std::vector<ILNode*> nodes, Statement* next ) :
+		Statement( StatementType::BASIC, next ),
 		nodes_( std::move( nodes ) )
 	{}
-	BasicStatement( ILBlock* block ) :
-		Statement( StatementType::BASIC )
+	BasicStatement( ILBlock* block, Statement* next ) :
+		Statement( StatementType::BASIC, next )
 	{
 		size_t end = block->num_nodes();
 
@@ -81,27 +89,11 @@ private:
 	std::vector<ILNode*> nodes_;
 };
 
-class SequenceStatement : public Statement
-{
-public:
-	SequenceStatement( std::vector<Statement*> statements ) :
-		Statement( StatementType::SEQUENCE ),
-		statements_( std::move( statements ) )
-	{}
-
-	Statement* statement( size_t index ) { return statements_[index]; }
-	size_t num_statements() const { return statements_.size(); }
-
-	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitSequenceStatement( this ); }
-private:
-	std::vector<Statement*> statements_;
-};
-
 class IfStatement : public Statement
 {
 public:
-	IfStatement( ILNode* condition, Statement* then_branch, Statement* else_branch ) :
-		Statement( StatementType::IF ),
+	IfStatement( ILNode* condition, Statement* then_branch, Statement* else_branch, Statement* next ) :
+		Statement( StatementType::IF, next ),
 		condition_( condition ),
 		then_branch_( then_branch ),
 		else_branch_( else_branch )
@@ -121,8 +113,8 @@ private:
 class WhileStatement : public Statement
 {
 public:
-	WhileStatement( ILNode* condition, Statement* body ) :
-		Statement( StatementType::WHILE ),
+	WhileStatement( ILNode* condition, Statement* body, Statement* next ) :
+		Statement( StatementType::WHILE, next ),
 		condition_( condition ),
 		body_( body )
 	{}
@@ -145,8 +137,8 @@ struct CaseStatement
 class SwitchStatement : public Statement
 {
 public:
-	SwitchStatement( ILNode* value, Statement* default_case, std::vector<CaseStatement> cases ) :
-		Statement( StatementType::WHILE ),
+	SwitchStatement( ILNode* value, Statement* default_case, std::vector<CaseStatement> cases, Statement* next ) :
+		Statement( StatementType::WHILE, next ),
 		value_( value ),
 		default_case_( default_case ),
 		cases_( std::move( cases ) )
@@ -164,13 +156,36 @@ private:
 	std::vector<CaseStatement> cases_;
 };
 
+class ContinueStatement : public Statement
+{
+public:
+	ContinueStatement() :
+		Statement( StatementType::CONTINUE, nullptr )
+	{}
+
+	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitContinueStatement( this ); }
+};
+
+class BreakStatement : public Statement
+{
+public:
+	BreakStatement() :
+		Statement( StatementType::BREAK, nullptr )
+	{}
+
+	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitBreakStatement( this ); }
+};
+
 class GotoStatement : public Statement
 {
 public:
 	GotoStatement( Statement* target ) :
-		Statement( StatementType::GOTO ),
+		Statement( StatementType::GOTO, nullptr ),
 		target_( target )
-	{}
+	{
+		if( !target )
+			assert( false );
+	}
 
 	Statement* target() { return target_; }
 

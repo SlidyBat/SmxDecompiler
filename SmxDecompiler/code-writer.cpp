@@ -27,14 +27,6 @@ void CodeWriter::VisitBasicStatement( BasicStatement * stmt )
 	}
 }
 
-void CodeWriter::VisitSequenceStatement( SequenceStatement* stmt )
-{
-	for( size_t i = 0; i < stmt->num_statements(); i++ )
-	{
-		Visit( stmt->statement( i ) );
-	}
-}
-
 void CodeWriter::VisitIfStatement( IfStatement* stmt )
 {
 	bool old = in_else_if_;
@@ -50,7 +42,9 @@ void CodeWriter::VisitIfStatement( IfStatement* stmt )
 	code_ << Tabs() << "}\n";
 	if( stmt->else_branch() )
 	{
-		if( auto* else_if = dynamic_cast<IfStatement*>(stmt->else_branch()) )
+		auto* else_if = dynamic_cast<IfStatement*>(stmt->else_branch());
+		if( else_if &&
+			(else_if->next() == nullptr || dynamic_cast<IfStatement*>(else_if->next())) )
 		{
 			in_else_if_ = true;
 			Visit( else_if );
@@ -87,20 +81,34 @@ void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
 	for( size_t i = 0; i < stmt->num_cases(); i++ )
 	{
 		code_ << Tabs() << "case " << stmt->case_entry( i ).value << ":\n";
+		code_ << Tabs() << "{\n";
 		Indent();
 		Visit( stmt->case_entry( i ).body );
 		Dedent();
+		code_ << Tabs() << "}\n";
 	}
 
 	if( stmt->default_case() )
 	{
 		code_ << Tabs() << "default:\n";
+		code_ << Tabs() << "{\n";
 		Indent();
 		Visit( stmt->default_case() );
 		Dedent();
+		code_ << Tabs() << "}\n";
 	}
 	Dedent();
 	code_ << Tabs() << "}\n";
+}
+
+void CodeWriter::VisitContinueStatement( ContinueStatement* stmt )
+{
+	code_ << Tabs() << "continue;\n";
+}
+
+void CodeWriter::VisitBreakStatement( BreakStatement* stmt )
+{
+	code_ << Tabs() << "break;\n";
 }
 
 void CodeWriter::VisitGotoStatement( GotoStatement* stmt )
@@ -222,7 +230,6 @@ void CodeWriter::VisitLocalVar( ILLocalVar* node )
 
 void CodeWriter::VisitGlobalVar( ILGlobalVar* node )
 {
-	std::string var_name;
 	if( node->smx_var() )
 	{
 		code_ << node->smx_var()->name;
@@ -344,14 +351,18 @@ void CodeWriter::VisitInterval( ILInterval* node )
 
 void CodeWriter::Visit( Statement* stmt )
 {
-	if( stmt->label() )
+	do
 	{
-		Dedent();
-		code_ << Tabs() << stmt->label() << ":\n";
-		Indent();
-	}
+		if( stmt->label() )
+		{
+			Dedent();
+			code_ << Tabs() << stmt->label() << ":\n";
+			Indent();
+		}
 
-	stmt->Accept( this );
+		stmt->Accept( this );
+		stmt = stmt->next();
+	} while( stmt != nullptr );
 }
 
 std::string CodeWriter::Build( ILNode* node )

@@ -10,6 +10,23 @@ public:
 
 	Statement* Transform();
 private:
+	enum class ScopeType
+	{
+		BASIC,
+		BREAK,
+		CONTINUE
+	};
+	struct Scope
+	{
+		Scope( ILBlock* follow, ScopeType type ) :
+			follow( follow ),
+			type( type )
+		{}
+
+		ILBlock* follow;
+		ScopeType type;
+	};
+
 	void FindBlocksInInterval( ILBlock* interval, size_t level, std::vector<ILBlock*>& blocks );
 	void FindBlocksInLoop( ILBlock* head, ILBlock* latch, const std::vector<ILBlock*>& blocks );
 	void MarkLoops();
@@ -24,9 +41,10 @@ private:
 	Statement* CreateLoopStatement( ILBlock* bb, ILBlock* loop_latch );
 	Statement* CreateNonLoopStatement( ILBlock* bb, ILBlock* loop_latch );
 
-	void PushScope( ILBlock* follow ) { follow_stack_.push_back( follow ); }
-	void PopScope() { follow_stack_.pop_back(); }
-	bool IsPartOfOuterScope( ILBlock* block ) const { return std::find( follow_stack_.begin(), follow_stack_.end(), block ) != follow_stack_.end(); }
+	void PushScope( ILBlock* follow, ScopeType type ) { scope_stack_.emplace_back( follow, type ); }
+	void PopScope() { scope_stack_.pop_back(); }
+	const Scope* FindInOuterScope( ILBlock* block ) const;
+	bool FindSameTypeScopeAfter( const Scope* scope ) const;
 
 	ILControlFlowGraph* cfg() { return derived_[0]; }
 private:
@@ -34,6 +52,6 @@ private:
 	std::vector<ILBlock*> loop_heads_;
 	std::vector<ILBlock*> loop_latch_;
 	std::vector<ILBlock*> if_follow_;
-	std::vector<ILBlock*> follow_stack_;
+	std::vector<Scope> scope_stack_;
 	std::vector<Statement*> statements_;
 };

@@ -133,10 +133,29 @@ void Structurizer::MarkIfs()
 
 Statement* Structurizer::CreateStatement( ILBlock* bb, ILBlock* loop_latch )
 {
-	if( IsPartOfOuterScope( bb ) )
-	{
-		assert( !"Should not reach here!" );
+	if( !bb )
 		return nullptr;
+
+	const Scope* outer_scope = FindInOuterScope( bb );
+	if( outer_scope )
+	{
+		if( outer_scope->type == ScopeType::BASIC )
+			return nullptr;
+
+		if( !FindSameTypeScopeAfter( outer_scope ) )
+		{
+			if( outer_scope->type == ScopeType::BREAK )
+			{
+				return new BreakStatement;
+			}
+			else if( outer_scope->type == ScopeType::CONTINUE )
+			{
+				return new ContinueStatement;
+			}
+
+			assert( !"Unhandled scope type" );
+			return new GotoStatement( StatementForBlock( bb ) );
+		}
 	}
 
 	Statement* stmt;
@@ -151,7 +170,7 @@ Statement* Structurizer::CreateStatement( ILBlock* bb, ILBlock* loop_latch )
 
 	if( bb == loop_latch )
 	{
-		return new BasicStatement( bb );
+		return new BasicStatement( bb, nullptr );
 	}
 
 	if( LoopHead( bb ) == bb )
@@ -198,21 +217,18 @@ Statement* Structurizer::CreateLoopStatement( ILBlock* bb, ILBlock* loop_latch )
 		if( jmp->true_branch() != body )
 			jmp->Invert();
 
-		PushScope( follow );
+		PushScope( head, ScopeType::CONTINUE );
+		PushScope( follow, ScopeType::BREAK);
 
 		Statement* body_stmt = nullptr;
 		if( head != latch )
 			body_stmt = CreateStatement( body, latch );
 		
 		PopScope();
+		PopScope();
 
-		std::vector<Statement*> statements;
-		statements.push_back( new WhileStatement( jmp->condition(), body_stmt ) );
-		if( !IsPartOfOuterScope( follow ) )
-		{
-			statements.push_back( CreateStatement( follow, loop_latch ) );
-		}
-		return new SequenceStatement( std::move( statements ) );
+		Statement* next_stmt = CreateStatement( follow, loop_latch );
+		return new WhileStatement( jmp->condition(), body_stmt, next_stmt );
 	}
 
 	return nullptr;
@@ -222,8 +238,15 @@ Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb, ILBlock* loop_latc
 {
 	if( auto* switch_node = dynamic_cast<ILSwitch*>(bb->Last()) )
 	{
-		ILNode* value = switch_node->value();
-		Statement* default_case = CreateStatement( switch_node->default_case(), loop_latch );
+		ILBlock* follow = bb->immed_post_dominator();
+
+		// This is intentionally not BREAK, sp has no fall-through on cases so the break is implicit
+		PushScope( follow, ScopeType::BASIC );
+
+		Statement* default_case = nullptr;
+		if( switch_node->default_case() != follow )
+			default_case = CreateStatement( switch_node->default_case(), loop_latch );
+
 		std::vector<CaseStatement> cases;
 		cases.reserve( switch_node->num_cases() );
 		for( size_t i = 0; i < switch_node->num_cases(); i++ )
@@ -234,8 +257,16 @@ Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb, ILBlock* loop_latc
 			cases.push_back( case_entry );
 		}
 
-		// TODO: Get follow of switch statement
-		return new SwitchStatement( value, default_case, std::move( cases ) );
+		PopScope();
+
+		Statement* next_stmt = CreateStatement( follow, loop_latch );
+		Statement* switch_stmt = new SwitchStatement( switch_node->value(), default_case, std::move( cases ), next_stmt );
+
+		// There can be some code before the Switch in the head, if there is then add that here too
+		if( bb->num_nodes() > 1 )
+			switch_stmt = new BasicStatement( bb, switch_stmt );
+
+		return switch_stmt;
 	}
 	else if( bb->num_out_edges() == 2 )
 	{
@@ -246,46 +277,85 @@ Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb, ILBlock* loop_latc
 
 		if( !follow )
 		{
-			// The branches never converge, the follow must be one of the branches
-			follow = jmp->false_branch();
+			// The branches never converge, at least one of the branches terminates
+
+			// First check if one of the other branches converges, if so, then that will be the follow
+			if( jmp->true_branch()->immed_post_dominator() != jmp->true_branch() )
+			{
+				follow = jmp->true_branch()->immed_post_dominator();
+			}
+			else if( jmp->false_branch()->immed_post_dominator() != jmp->false_branch() )
+			{
+				follow = jmp->false_branch()->immed_post_dominator();
+			}
+
+			// Both branches terminate, this must be an if-then without an else
+			// Mark the else branch as the follow
+			if( !follow )
+			{
+				follow = jmp->false_branch();
+			}
 		}
 
-		PushScope( follow );
+		assert( follow );
+
+		PushScope( follow, ScopeType::BASIC );
 
 		Statement* then_branch = nullptr;
-		if( jmp->true_branch() && !IsPartOfOuterScope( jmp->true_branch() ) )
+		if( jmp->true_branch() != follow )
 			then_branch = CreateStatement( jmp->true_branch(), loop_latch );
 		Statement* else_branch = nullptr;
-		if( jmp->false_branch() && !IsPartOfOuterScope( jmp->false_branch() ) )
+		if( jmp->false_branch() != follow )
 			else_branch = CreateStatement( jmp->false_branch(), loop_latch );
-
-		std::vector<Statement*> sequence;
-		if( bb->num_nodes() > 1 )
-			sequence.push_back( new BasicStatement( bb ) );
-
-		sequence.push_back( new IfStatement( jmp->condition(), then_branch, else_branch ) );
 
 		PopScope();
 
-		if( follow && !IsPartOfOuterScope( follow ) )
-			sequence.push_back( CreateStatement( follow, loop_latch ) );
+		Statement* next_stmt = CreateStatement( follow, loop_latch );
+		Statement* if_stmt = new IfStatement( jmp->condition(), then_branch, else_branch, next_stmt );
 
-		return (sequence.size() > 1) ? new SequenceStatement( std::move( sequence ) ) : sequence[0];
+		// There can be some code before the JumpCond in the head, if there is then add that here too
+		if( bb->num_nodes() > 1 )
+			if_stmt = new BasicStatement( bb, if_stmt );
+
+		return if_stmt;
 	}
 	else if( bb->num_out_edges() == 1 )
 	{
-		std::vector<Statement*> statements;
-		statements.push_back( new BasicStatement( bb ) );
-
 		ILBlock* succ = &bb->out_edge( 0 );
-		if( !IsPartOfOuterScope( succ ) )
-			statements.push_back( CreateStatement( succ, loop_latch ) );
-		return new SequenceStatement( std::move( statements ) );
+		const Scope* scope = FindInOuterScope( succ );
+
+		Statement* next_stmt = nullptr;
+		if( !scope || scope->type != ScopeType::BASIC )
+			next_stmt = CreateStatement( succ, loop_latch );
+
+		return new BasicStatement( bb, next_stmt );
 	}
 	else
 	{
 		assert( bb->num_out_edges() == 0 );
-		return new BasicStatement( bb );
+		return new BasicStatement( bb, nullptr );
 	}
+}
+
+const Structurizer::Scope* Structurizer::FindInOuterScope( ILBlock* block ) const
+{
+	for( const Scope& scope : scope_stack_ )
+	{
+		if( scope.follow == block )
+			return &scope;
+	}
+	return nullptr;
+}
+
+bool Structurizer::FindSameTypeScopeAfter( const Scope* scope ) const
+{
+	size_t index = scope - &scope_stack_[0];
+	for( size_t i = index + 1; i < scope_stack_.size(); i++ )
+	{
+		if( scope_stack_[i].type == scope->type )
+			return true;
+	}
+
+	return false;
 }
 
