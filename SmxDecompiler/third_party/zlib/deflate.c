@@ -445,9 +445,9 @@ int ZEXPORT deflateSetHeader (
 
 /* ========================================================================= */
 int ZEXPORT deflatePending (
+    z_streamp strm,
     unsigned *pending,
-    int *bits,
-    z_streamp strm)
+    int *bits)
 {
     if (strm == Z_NULL || strm->state == Z_NULL) return Z_STREAM_ERROR;
     if (pending != Z_NULL)
