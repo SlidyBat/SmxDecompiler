@@ -81,13 +81,16 @@ struct SmxVariable
 	cell_t address;
 	SmxVariableType type;
 	SmxVariableClass vclass;
+	bool is_public;
 };
 
 struct SmxFunction
 {
+	const char* raw_name;
 	const char* name;
 	cell_t pcode_start;
 	cell_t pcode_end;
+	bool is_public;
 	SmxFunctionSignature signature;
 	size_t num_locals = 0;
 	SmxVariable* locals;
@@ -168,6 +171,7 @@ public:
 
 	SmxFunction* FindFunctionByName( const char* func_name );
 	SmxFunction* FindFunctionAt( cell_t addr );
+	SmxFunction* FindFunctionById( cell_t id );
 	SmxNative*   FindNativeByIndex( size_t index );
 	SmxVariable* FindGlobalByName( const char* var_name );
 	SmxVariable* FindGlobalAt( cell_t addr );
@@ -231,6 +235,7 @@ private:
 	char* names_ = nullptr;
 	unsigned char* rtti_data_ = nullptr;
 	std::vector<SmxFunction> functions_;
+	std::vector<SmxFunction*> rtti_methods_;
 	std::vector<SmxNative> natives_;
 	std::vector<SmxEnum> enums_;
 	std::vector<SmxTypeDef> typedefs_;

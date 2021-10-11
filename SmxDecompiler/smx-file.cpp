@@ -259,6 +259,18 @@ SmxFunction* SmxFile::FindFunctionAt( cell_t addr )
     return nullptr;
 }
 
+SmxFunction* SmxFile::FindFunctionById( cell_t id )
+{
+    if( id & 1 )
+    {
+        id >>= 1;
+        if( id >= num_functions() )
+            return nullptr;
+        return &functions_[id];
+    }
+    return nullptr;
+}
+
 SmxNative* SmxFile::FindNativeByIndex( size_t index )
 {
     if( index < natives_.size() )
@@ -314,6 +326,9 @@ void SmxFile::ReadSections()
     READ_SECTION( ".code",                  ReadCode );
     READ_SECTION( ".data",                  ReadData );
     READ_SECTION( ".names",                 ReadNames );
+    READ_SECTION( ".publics",               ReadPublics );
+    READ_SECTION( ".pubvars",               ReadPubvars );
+    READ_SECTION( ".natives",               ReadNatives );
     READ_SECTION( "rtti.data",              ReadRttiData );
     READ_SECTION( "rtti.enums",             ReadRttiEnums );
     READ_SECTION( "rtti.typedefs",          ReadRttiTypeDefs );
@@ -327,9 +342,6 @@ void SmxFile::ReadSections()
     READ_SECTION( ".dbg.globals",           ReadDbgGlobals );
     READ_SECTION( ".dbg.locals",            ReadDbgLocals );
     READ_SECTION( ".dbg.methods",           ReadDbgMethods );
-    READ_SECTION( ".publics",               ReadPublics );
-    READ_SECTION( ".pubvars",               ReadPubvars );
-    READ_SECTION( ".natives",               ReadNatives );
     // TODO: Also read legacy debug sections (.dbg.symbols, .dbg.natives)
 }
 #undef READ_SECTION
@@ -355,10 +367,6 @@ void SmxFile::ReadNames( const char* name, size_t offset, size_t size )
 
 void SmxFile::ReadPublics( const char* name, size_t offset, size_t size )
 {
-    // Already filled by .rtti.methods
-    if( !functions_.empty() )
-        return;
-
     auto* rows = (sp_file_publics_t*)(image_.get() + offset);
     size_t row_count = size / sizeof( sp_file_publics_t );
     for( size_t i = 0; i < row_count; i++ )
@@ -369,16 +377,25 @@ void SmxFile::ReadPublics( const char* name, size_t offset, size_t size )
         // No pcode_end for the .publics section, just set it to end of .code section
         func.pcode_end = code_size();
 
+        // Public functions have just their name
+        // Non-public functions are prefixed with `.<address>.`
+        func.is_public = true;
+        if( func.name[0] == '.' )
+        {
+            do
+            {
+                func.name++;
+            } while( func.name[0] != '.' );
+            func.name++;
+            func.is_public = false;
+        }
+
         functions_.push_back( func );
     }
 }
 
 void SmxFile::ReadPubvars( const char* name, size_t offset, size_t size )
 {
-    // Already filled by .dbg.globals
-    if( !globals_.empty() )
-        return;
-
     auto* rows = (sp_file_pubvars_t*)(image_.get() + offset);
     size_t row_count = size / sizeof( sp_file_pubvars_t );
     for( size_t i = 0; i < row_count; i++ )
@@ -388,16 +405,25 @@ void SmxFile::ReadPubvars( const char* name, size_t offset, size_t size )
         global.address = rows[i].address;
         global.vclass = SmxVariableClass::GLOBAL;
 
+        // Public variables have just their name
+        // Non-public variables are prefixed with `.<address>.`
+        global.is_public = true;
+        if( global.name[0] == '.' )
+        {
+            do
+            {
+                global.name++;
+            } while( global.name[0] != '.' );
+            global.name++;
+            global.is_public = false;
+        }
+
         globals_.push_back( global );
     }
 }
 
 void SmxFile::ReadNatives( const char* name, size_t offset, size_t size )
 {
-    // Already filled by .rtti.natives
-    if( !natives_.empty() )
-        return;
-
     auto* rows = (sp_file_natives_t*)(image_.get() + offset);
     size_t row_count = size / sizeof( sp_file_natives_t );
     for( size_t i = 0; i < row_count; i++ )
@@ -418,16 +444,25 @@ void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
 {
     auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
 
-    functions_.reserve( rttihdr->row_count );
+    rtti_methods_.reserve( rttihdr->row_count );
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
         auto* row = reinterpret_cast<const smx_rtti_method*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
-        SmxFunction func;
-        func.name = names_ + row->name;
-        func.pcode_start = row->pcode_start;
-        func.pcode_end = row->pcode_end;
-        func.signature = DecodeFunctionSignature( row->signature );
-        functions_.push_back( func );
+        
+        SmxFunction* func = FindFunctionAt( row->pcode_start );
+        if( !func )
+        {
+            assert( !"Invalid rtti table" );
+            continue;
+        }
+        assert( func->pcode_start == row->pcode_start );
+        assert( strcmp( func->name, names_ + row->name ) == 0 );
+
+        func->name = names_ + row->name;
+        func->pcode_end = row->pcode_end;
+        func->signature = DecodeFunctionSignature( row->signature );
+
+        rtti_methods_.push_back( func );
     }
 }
 
@@ -439,10 +474,17 @@ void SmxFile::ReadRttiNatives( const char* name, size_t offset, size_t size )
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
         auto* row = reinterpret_cast<const smx_rtti_native*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
-        SmxNative ntv;
-        ntv.name = names_ + row->name;
-        ntv.signature = DecodeFunctionSignature( row->signature );
-        natives_.push_back( ntv );
+        
+        SmxNative* ntv = FindNativeByIndex( i );
+        if( !ntv )
+        {
+            assert( !"Invalid rtti table" );
+            break;
+        }
+        assert( strcmp( ntv->name, names_ + row->name ) == 0 );
+
+        ntv->name = names_ + row->name;
+        ntv->signature = DecodeFunctionSignature( row->signature );
     }
 }
 
@@ -576,26 +618,26 @@ void SmxFile::ReadDbgMethods( const char* name, size_t offset, size_t size )
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
         auto* row = reinterpret_cast<const smx_rtti_debug_method*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
-        SmxFunction& func = functions_[row->method_index];
+        SmxFunction* func = rtti_methods_[row->method_index];
         if( i != rttihdr->row_count - 1 )
         {
             auto* next_row = reinterpret_cast<const smx_rtti_debug_method*>( image_.get() + offset + rttihdr->header_size + (i + 1) * rttihdr->row_size );
-            func.num_locals = next_row->first_local - row->first_local;
+            func->num_locals = next_row->first_local - row->first_local;
         }
         else
         {
-            func.num_locals = locals_.size() - row->first_local;
+            func->num_locals = locals_.size() - row->first_local;
         }
-        func.locals = &locals_[row->first_local];
+        func->locals = &locals_[row->first_local];
 
         // Now that we have locals info, fill in names in signatures
-        for( size_t arg = 0; arg < func.signature.nargs; arg++ )
+        for( size_t arg = 0; arg < func->signature.nargs; arg++ )
         {
-            SmxVariable* arg_local = func.FindLocalByStackOffset( arg * 4 + 12 );
+            SmxVariable* arg_local = func->FindLocalByStackOffset( arg * 4 + 12 );
             if( !arg_local )
                 continue;
             assert( arg_local->vclass == SmxVariableClass::ARG );
-            func.signature.args[arg].name = arg_local->name;
+            func->signature.args[arg].name = arg_local->name;
         }
     }
 }
@@ -608,12 +650,17 @@ void SmxFile::ReadDbgGlobals( const char* name, size_t offset, size_t size )
     for( size_t i = 0; i < rttihdr->row_count; i++ )
     {
         auto* row = reinterpret_cast<const smx_rtti_debug_var*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
-        SmxVariable var;
-        var.name = names_ + row->name;
-        var.address = row->address;
-        var.type = DecodeVariableType( row->type_id );
-        var.vclass = (SmxVariableClass)row->vclass;
-        globals_.push_back( var );
+        SmxVariable* var = FindGlobalAt( row->address );
+        if( !var )
+        {
+            globals_.emplace_back();
+            var = &globals_.back();
+        }
+        
+        var->name = names_ + row->name;
+        var->address = row->address;
+        var->type = DecodeVariableType( row->type_id );
+        var->vclass = (SmxVariableClass)row->vclass;
     }
 }
 

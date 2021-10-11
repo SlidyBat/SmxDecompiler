@@ -8,6 +8,8 @@ CodeWriter::CodeWriter( SmxFile& smx, const char* function ) :
 
 std::string CodeWriter::Build( Statement* stmt )
 {
+	if( func_->is_public )
+		code_ << "public ";
 	code_ << BuildFuncDecl( func_->name, &func_->signature ) << '\n';
 	code_ << "{\n";
 	Indent();
@@ -529,9 +531,14 @@ std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* typ
 		}
 
 		case SmxVariableType::TYPEDEF:
+		case SmxVariableType::TYPESET:
 		{
 			assert( type->dimcount == 0 );
-			SmxFunction* func = smx_->FindFunctionAt( *val );
+			if( *val == 0 )
+				return "INVALID_FUNCTION";
+			SmxFunction* func = smx_->FindFunctionById( *val );
+			if( !func )
+				return "<error>";
 			return func->name;
 		}
 
