@@ -10,7 +10,8 @@ enum class StatementType
 	IF,
 	WHILE,
 	DO_WHILE,
-	SWITCH
+	SWITCH,
+	GOTO
 };
 
 class BasicStatement;
@@ -18,6 +19,7 @@ class SequenceStatement;
 class IfStatement;
 class WhileStatement;
 class SwitchStatement;
+class GotoStatement;
 
 class StatementVisitor
 {
@@ -27,6 +29,7 @@ public:
 	virtual void VisitIfStatement( IfStatement* stmt ) = 0;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) = 0;
 	virtual void VisitSwitchStatement( SwitchStatement* stmt ) = 0;
+	virtual void VisitGotoStatement( GotoStatement* stmt ) = 0;
 };
 
 class Statement
@@ -37,9 +40,13 @@ public:
 
 	virtual void Accept( StatementVisitor* visitor ) = 0;
 
+	void CreateLabel( cell_t pc ) { label_ = "label_" + std::to_string( pc ); }
+	const char* label() const { return label_.empty() ? nullptr : label_.c_str(); }
+
 	StatementType type() const { return type_; }
 private:
 	StatementType type_;
+	std::string label_;
 };
 
 class BasicStatement : public Statement
@@ -155,4 +162,19 @@ private:
 	ILNode* value_;
 	Statement* default_case_;
 	std::vector<CaseStatement> cases_;
+};
+
+class GotoStatement : public Statement
+{
+public:
+	GotoStatement( Statement* target ) :
+		Statement( StatementType::GOTO ),
+		target_( target )
+	{}
+
+	Statement* target() { return target_; }
+
+	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitGotoStatement( this ); }
+private:
+	Statement* target_;
 };

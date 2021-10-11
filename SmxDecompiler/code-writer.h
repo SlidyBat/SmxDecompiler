@@ -18,6 +18,7 @@ public:
 	virtual void VisitIfStatement( IfStatement* stmt ) override;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) override;
 	virtual void VisitSwitchStatement( SwitchStatement* stmt ) override;
+	virtual void VisitGotoStatement( GotoStatement* stmt ) override;
 
 	virtual void VisitConst( ILConst* node ) override;
 	virtual void VisitUnary( ILUnary* node ) override;

@@ -101,6 +101,11 @@ void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
 	code_ << Tabs() << "}\n";
 }
 
+void CodeWriter::VisitGotoStatement( GotoStatement* stmt )
+{
+	code_ << Tabs() << "goto " << stmt->target()->label() << ";\n";
+}
+
 void CodeWriter::VisitConst( ILConst* node )
 {
 	cell_t value = node->value();
@@ -337,6 +342,13 @@ void CodeWriter::VisitInterval( ILInterval* node )
 
 void CodeWriter::Visit( Statement* stmt )
 {
+	if( stmt->label() )
+	{
+		Dedent();
+		code_ << Tabs() << stmt->label() << ":\n";
+		Indent();
+	}
+
 	stmt->Accept( this );
 }
 

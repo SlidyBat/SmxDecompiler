@@ -16,14 +16,17 @@ Structurizer::Structurizer( ILControlFlowGraph* cfg )
 
 	loop_heads_.resize( cfg->num_blocks(), nullptr );
 	loop_latch_.resize( cfg->num_blocks(), nullptr );
+	if_follow_.resize( cfg->num_blocks(), nullptr );
 	statements_.resize( cfg->num_blocks(), nullptr );
 }
 
 Statement* Structurizer::Transform()
 {
 	MarkLoops();
+	MarkIfs();
 
-	return CreateStatement( &cfg()->block( 0 ) );
+	cfg()->NewEpoch();
+	return CreateStatement( &cfg()->block( 0 ), nullptr );
 }
 
 void Structurizer::FindBlocksInInterval( ILBlock* interval, size_t level, std::vector<ILBlock*>& blocks )
@@ -57,7 +60,7 @@ void Structurizer::FindBlocksInLoop( ILBlock* head, ILBlock* latch, const std::v
 		}
 	}
 	LoopHead( latch ) = head;
-
+	
 	LoopLatch( head ) = latch;
 }
 
@@ -106,21 +109,67 @@ void Structurizer::MarkLoops()
 	}
 }
 
-Statement*& Structurizer::StatementForBlock( ILBlock* bb )
+void Structurizer::MarkIfs()
 {
-	return statements_[bb->id()];
+	for( int i = (int)cfg()->num_blocks() - 1; i >= 0; i-- )
+	{
+		ILBlock* bb = &cfg()->block( i );
+		if( bb->num_out_edges() != 2 )
+			continue;
+
+		if( auto* switch_node = dynamic_cast<ILSwitch*>(bb->Last()) )
+			continue;
+
+		if( bb->immed_post_dominator() == bb )
+		{
+			IfFollow( bb ) = nullptr;
+		}
+		else
+		{
+			IfFollow( bb ) = bb->immed_post_dominator();
+		}
+	}
 }
 
-Statement* Structurizer::CreateStatement( ILBlock* bb )
+Statement* Structurizer::CreateStatement( ILBlock* bb, ILBlock* loop_latch )
 {
+	if( IsPartOfOuterScope( bb ) )
+	{
+		assert( !"Should not reach here!" );
+		return nullptr;
+	}
+
+	Statement* stmt;
+	if( bb->IsVisited() )
+	{
+		stmt = StatementForBlock( bb );
+		assert( stmt );
+		if( !stmt->label() )
+			stmt->CreateLabel( bb->pc() );
+		return new GotoStatement( stmt );
+	}
+
+	if( bb == loop_latch )
+	{
+		return new BasicStatement( bb );
+	}
+
 	if( LoopHead( bb ) == bb )
 	{
-		return CreateLoopStatement( bb );
+		stmt = CreateLoopStatement( bb, loop_latch );
 	}
-	return CreateNonLoopStatement( bb );
+	else
+	{
+		stmt = CreateNonLoopStatement( bb, loop_latch );
+	}
+
+	StatementForBlock( bb ) = stmt;
+	bb->SetVisited();
+
+	return stmt;
 }
 
-Statement* Structurizer::CreateLoopStatement( ILBlock* bb )
+Statement* Structurizer::CreateLoopStatement( ILBlock* bb, ILBlock* loop_latch )
 {
 	ILBlock* head = bb;
 	ILBlock* latch = LoopLatch( head );
@@ -149,62 +198,93 @@ Statement* Structurizer::CreateLoopStatement( ILBlock* bb )
 		if( jmp->true_branch() != body )
 			jmp->Invert();
 
+		PushScope( follow );
+
+		Statement* body_stmt = nullptr;
+		if( head != latch )
+			body_stmt = CreateStatement( body, latch );
+		
+		PopScope();
+
 		std::vector<Statement*> statements;
-		statements.push_back( new WhileStatement( jmp->condition(), CreateStatement( body ) ) );
-		statements.push_back( CreateStatement( follow ) );
+		statements.push_back( new WhileStatement( jmp->condition(), body_stmt ) );
+		if( !IsPartOfOuterScope( follow ) )
+		{
+			statements.push_back( CreateStatement( follow, loop_latch ) );
+		}
 		return new SequenceStatement( std::move( statements ) );
 	}
 
 	return nullptr;
 }
 
-Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb )
+Statement* Structurizer::CreateNonLoopStatement( ILBlock* bb, ILBlock* loop_latch )
 {
-	if( bb->num_out_edges() > 0 )
+	if( auto* switch_node = dynamic_cast<ILSwitch*>(bb->Last()) )
 	{
-		if( auto* switch_node = dynamic_cast<ILSwitch*>(bb->Last()) )
+		ILNode* value = switch_node->value();
+		Statement* default_case = CreateStatement( switch_node->default_case(), loop_latch );
+		std::vector<CaseStatement> cases;
+		cases.reserve( switch_node->num_cases() );
+		for( size_t i = 0; i < switch_node->num_cases(); i++ )
 		{
-			ILNode* value = switch_node->value();
-			Statement* default_case = CreateStatement( switch_node->default_case() );
-			std::vector<CaseStatement> cases;
-			cases.reserve( switch_node->num_cases() );
-			for( size_t i = 0; i < switch_node->num_cases(); i++ )
-			{
-				CaseStatement case_entry;
-				case_entry.body = CreateStatement( switch_node->case_entry( i ).address );
-				case_entry.value = switch_node->case_entry( i ).value;
-			}
+			CaseStatement case_entry;
+			case_entry.body = CreateStatement( switch_node->case_entry( i ).address, loop_latch );
+			case_entry.value = switch_node->case_entry( i ).value;
+			cases.push_back( case_entry );
+		}
 
-			return new SwitchStatement( value, default_case, std::move( cases ) );
-		}
-		else if( bb->num_out_edges() == 1 )
-		{
-			// If this is a back edge then 
-			if( bb->IsBackEdge( 0 ) )
-			{
-				return new BasicStatement( bb );
-			}
-			else
-			{
-				std::vector<Statement*> statements;
-				statements.push_back( new BasicStatement( bb ) );
-				statements.push_back( CreateStatement( &bb->out_edge( 0 ) ) );
-				return new SequenceStatement( std::move( statements ) );
-			}
-		}
-		else
-		{
-			assert( bb->num_out_edges() == 2 );
-			auto* jmp = static_cast<ILJumpCond*>( bb->Last() );
-			jmp->Invert();
-			return new IfStatement( jmp->condition(),
-				CreateStatement( jmp->true_branch() ),
-				CreateStatement( jmp->false_branch() ) );
+		// TODO: Get follow of switch statement
+		return new SwitchStatement( value, default_case, std::move( cases ) );
+	}
+	else if( bb->num_out_edges() == 2 )
+	{
+		ILBlock* follow = IfFollow( bb );
 
+		auto* jmp = static_cast<ILJumpCond*>(bb->Last());
+		jmp->Invert();
+
+		if( !follow )
+		{
+			// The branches never converge, the follow must be one of the branches
+			follow = jmp->false_branch();
 		}
+
+		PushScope( follow );
+
+		Statement* then_branch = nullptr;
+		if( jmp->true_branch() && !IsPartOfOuterScope( jmp->true_branch() ) )
+			then_branch = CreateStatement( jmp->true_branch(), loop_latch );
+		Statement* else_branch = nullptr;
+		if( jmp->false_branch() && !IsPartOfOuterScope( jmp->false_branch() ) )
+			else_branch = CreateStatement( jmp->false_branch(), loop_latch );
+
+		std::vector<Statement*> sequence;
+		if( bb->num_nodes() > 1 )
+			sequence.push_back( new BasicStatement( bb ) );
+
+		sequence.push_back( new IfStatement( jmp->condition(), then_branch, else_branch ) );
+
+		PopScope();
+
+		if( follow && !IsPartOfOuterScope( follow ) )
+			sequence.push_back( CreateStatement( follow, loop_latch ) );
+
+		return (sequence.size() > 1) ? new SequenceStatement( std::move( sequence ) ) : sequence[0];
+	}
+	else if( bb->num_out_edges() == 1 )
+	{
+		std::vector<Statement*> statements;
+		statements.push_back( new BasicStatement( bb ) );
+
+		ILBlock* succ = &bb->out_edge( 0 );
+		if( !IsPartOfOuterScope( succ ) )
+			statements.push_back( CreateStatement( succ, loop_latch ) );
+		return new SequenceStatement( std::move( statements ) );
 	}
 	else
 	{
+		assert( bb->num_out_edges() == 0 );
 		return new BasicStatement( bb );
 	}
 }
