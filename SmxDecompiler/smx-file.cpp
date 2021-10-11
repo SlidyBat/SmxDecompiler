@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <cstdlib>
+#include <cassert>
 #include "third_party/zlib/zlib.h"
 
 struct SmxConsts {
@@ -320,7 +321,7 @@ void SmxFile::ReadNames( const char* name, size_t offset, size_t size )
 
 void SmxFile::ReadRttiData( const char* name, size_t offset, size_t size )
 {
-    rtti_data_ = image_.get() + offset;
+    rtti_data_ = (unsigned char*)image_.get() + offset;
 }
 
 void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
@@ -335,9 +336,7 @@ void SmxFile::ReadRttiMethods( const char* name, size_t offset, size_t size )
         func.name = names_ + row->name;
         func.pcode_start = row->pcode_start;
         func.pcode_end = row->pcode_end;
-        // TODO: Handle signature reading
-        func.signature.nargs = 0;
-        func.signature.varargs = false;
+        func.signature = DecodeFunctionSignature( row->signature );
         functions_.push_back( func );
     }
 }
@@ -352,8 +351,7 @@ void SmxFile::ReadRttiNatives( const char* name, size_t offset, size_t size )
         auto* row = reinterpret_cast<const smx_rtti_native*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
         SmxNative ntv;
         ntv.name = names_ + row->name;
-        ntv.signature.nargs = 0;
-        ntv.signature.varargs = false;
+        ntv.signature = DecodeFunctionSignature( row->signature );
         natives_.push_back( ntv );
     }
 }
@@ -467,6 +465,16 @@ void SmxFile::ReadDbgMethods( const char* name, size_t offset, size_t size )
             func.num_locals = locals_.size() - row->first_local;
         }
         func.locals = &locals_[row->first_local];
+
+        // Now that we have locals info, fill in names in signatures
+        for( size_t arg = 0; arg < func.signature.nargs; arg++ )
+        {
+            SmxVariable* arg_local = func.FindLocalByStackOffset( arg * 4 + 12 );
+            if( !arg_local )
+                continue;
+            assert( arg_local->vclass == SmxVariableClass::ARG );
+            func.signature.args[arg].name = arg_local->name;
+        }
     }
 }
 
@@ -577,30 +585,32 @@ SmxVariableType SmxFile::DecodeVariableType( uint32_t type_id )
     uint8_t kind = type_id & 0b1111;
     uint32_t payload = type_id >> 4;
 
-    char* data;
+    unsigned char* data;
     if( kind == kTypeId_Inline )
     {
-        data = (char*)&payload;
+        data = (unsigned char*)&payload;
     }
     else
     {
         data = &rtti_data_[payload];
     }
 
-    return DecodeVariableType( data );
+    return DecodeVariableType( &data );
 }
 
-SmxVariableType SmxFile::DecodeVariableType( char* data )
+SmxVariableType SmxFile::DecodeVariableType( unsigned char** data )
 {
     SmxVariableType type;
 
-    if( *data == cb::kConst )
+    unsigned char*& d = *data;
+
+    if( *d == cb::kConst )
     {
-        type.is_const = true;
-        data++;
+        type.flags |= SmxVariableType::IS_CONST;
+        d++;
     }
 
-    char b = *data++;
+    char b = *d++;
     switch( b )
     {
         case cb::kBool:
@@ -635,9 +645,10 @@ SmxVariableType SmxFile::DecodeVariableType( char* data )
         }
         case cb::kFixedArray:
         {
-            int size = DecodeUint32( &data );
+            int size = DecodeUint32( data );
             SmxVariableType inner = DecodeVariableType( data );
-            type.dimcount = inner.dimcount + 1;
+            type = inner;
+            type.dimcount++;
             int* dims = new int[type.dimcount];
             dims[0] = size;
             for( int i = 0; i < inner.dimcount; i++ )
@@ -645,7 +656,6 @@ SmxVariableType SmxFile::DecodeVariableType( char* data )
                 dims[i + 1] = inner.dims[i];
             }
             type.dims = dims;
-            type.tag = inner.tag;
             break;
         }
 
@@ -666,9 +676,58 @@ SmxVariableType SmxFile::DecodeVariableType( char* data )
     return type;
 }
 
-uint32_t SmxFile::DecodeUint32( char** data )
+SmxFunctionSignature SmxFile::DecodeFunctionSignature( uint32_t signature )
 {
-    char*& d = *data;
+    unsigned char* data = &rtti_data_[signature];
+    return DecodeFunctionSignature( &data );
+}
+
+SmxFunctionSignature SmxFile::DecodeFunctionSignature( unsigned char** data )
+{
+    unsigned char*& d = *data;
+    SmxFunctionSignature sig;
+
+    sig.nargs = *d++;
+
+    sig.varargs = false;
+    if( *d == cb::kVariadic )
+    {
+        sig.varargs = true;
+        d++;
+    }
+
+    if( *d == cb::kVoid )
+    {
+        sig.ret = new SmxVariableType;
+        sig.ret->tag = SmxVariableType::VOID;
+        d++;
+    }
+    else
+    {
+        sig.ret = new SmxVariableType( DecodeVariableType( &d ) );
+    }
+
+    sig.args = new SmxFunctionSignature::SmxFunctionSignatureArg[sig.nargs];
+    for( size_t i = 0; i < sig.nargs; i++ )
+    {
+        bool by_ref = false;
+        if( *d == cb::kByRef )
+        {
+            by_ref = true;
+            d++;
+        }
+
+        sig.args[i].type = DecodeVariableType( &d );
+        if( by_ref )
+            sig.args[i].type.flags |= SmxVariableType::BY_REF;
+    }
+
+    return sig;
+}
+
+uint32_t SmxFile::DecodeUint32( unsigned char** data )
+{
+    unsigned char*& d = *data;
 
     uint32_t value = 0;
     uint32_t shift = 0;

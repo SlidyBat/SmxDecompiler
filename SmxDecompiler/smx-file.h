@@ -12,26 +12,59 @@ struct SmxSection
 	size_t size;
 };
 
-struct SmxFunctionSignature
-{
-	int nargs;
-	bool varargs;
-};
-
 struct SmxVariableType
 {
 	enum SmxVariableTag
 	{
-		BOOL = 0x01,
-		INT = 0x06,
-		FLOAT = 0x0c,
-		CHAR = 0x0e,
-		ANY = 0x10
+		UNKNOWN = 0,
+		VOID,
+		BOOL,
+		INT,
+		FLOAT,
+		CHAR,
+		ANY,
+
+		ENUM,
+		TYPEDEF,
+		TYPESET,
+		CLASSDEF,
+		ENUM_STRUCT
 	};
-	SmxVariableTag tag = INT;
+	SmxVariableTag tag = UNKNOWN;
+
 	const int* dims = nullptr;
 	int dimcount = 0;
-	bool is_const = false;
+
+	union
+	{
+		struct SmxEnum* enumeration;
+		struct SmxTypeDef* type_def;
+		struct SmxTypeSet* type_set;
+		struct SmxEnumStruct* enum_struct;
+		struct SmxClassDef* classdef;
+	};
+
+	enum SmxVariableTypeFlags
+	{
+		NONE = 0,
+		IS_CONST = 1,
+		BY_REF = 2
+	};
+	int flags = SmxVariableTypeFlags::NONE;
+};
+
+struct SmxFunctionSignature
+{
+	SmxVariableType* ret = nullptr; // nullptr if void
+	struct SmxFunctionSignatureArg
+	{
+		const char* name = nullptr;
+		SmxVariableType type;
+	};
+	SmxFunctionSignatureArg* args = nullptr;
+
+	size_t nargs = 0;
+	bool varargs = false;
 };
 
 enum class SmxVariableClass
@@ -58,6 +91,16 @@ struct SmxFunction
 	SmxFunctionSignature signature;
 	size_t num_locals = 0;
 	SmxVariable* locals;
+
+	SmxVariable* FindLocalByStackOffset( int stack_offset )
+	{
+		for( size_t i = 0; i < num_locals; i++ )
+		{
+			if( locals[i].address == stack_offset )
+				return &locals[i];
+		}
+		return nullptr;
+	}
 };
 
 struct SmxNative
@@ -151,8 +194,10 @@ private:
 	void ReadDbgLocals( const char* name, size_t offset, size_t size );
 
 	SmxVariableType DecodeVariableType( uint32_t type_id );
-	SmxVariableType DecodeVariableType( char* data );
-	uint32_t DecodeUint32( char** data );
+	SmxVariableType DecodeVariableType( unsigned char** data );
+	SmxFunctionSignature DecodeFunctionSignature( uint32_t signature );
+	SmxFunctionSignature DecodeFunctionSignature( unsigned char** data );
+	uint32_t DecodeUint32( unsigned char** data );
 private:
 	std::unique_ptr<char[]> image_;
 	char* stringtab_ = nullptr;
@@ -162,7 +207,7 @@ private:
 	char* data_ = nullptr;
 	size_t data_size_ = 0;
 	char* names_ = nullptr;
-	char* rtti_data_ = nullptr;
+	unsigned char* rtti_data_ = nullptr;
 	std::vector<SmxFunction> functions_;
 	std::vector<SmxNative> natives_;
 	std::vector<SmxEnum> enums_;
