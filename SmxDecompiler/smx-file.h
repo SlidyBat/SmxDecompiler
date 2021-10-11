@@ -179,6 +179,9 @@ private:
 	void ReadCode( const char* name, size_t offset, size_t size );
 	void ReadData( const char* name, size_t offset, size_t size );
 	void ReadNames( const char* name, size_t offset, size_t size );
+	void ReadPublics( const char* name, size_t offset, size_t size );
+	void ReadPubvars( const char* name, size_t offset, size_t size );
+	void ReadNatives( const char* name, size_t offset, size_t size );
 	void ReadRttiData( const char* name, size_t offset, size_t size );
 	void ReadRttiMethods( const char* name, size_t offset, size_t size );
 	void ReadRttiNatives( const char* name, size_t offset, size_t size );

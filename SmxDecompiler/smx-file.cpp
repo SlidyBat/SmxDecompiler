@@ -74,6 +74,20 @@ typedef struct sp_file_data_s {
     uint32_t data;     /**< File offset to data (helper) */
 } sp_file_data_t;
 
+typedef struct sp_file_publics_s {
+    uint32_t address;
+    uint32_t name;
+} sp_file_publics_t;
+
+typedef struct sp_file_natives_s {
+    uint32_t name;
+} sp_file_natives_t;
+
+typedef struct sp_file_pubvars_s {
+    uint32_t address;
+    uint32_t name;
+} sp_file_pubvars_t;
+
 struct smx_rtti_table_header {
     uint32_t header_size;
     uint32_t row_size;
@@ -283,10 +297,7 @@ void SmxFile::ReadSections()
     READ_SECTION( ".code",                  ReadCode );
     READ_SECTION( ".data",                  ReadData );
     READ_SECTION( ".names",                 ReadNames );
-    // TODO: Read .natives section
     READ_SECTION( "rtti.data",              ReadRttiData );
-    READ_SECTION( "rtti.methods",           ReadRttiMethods );
-    READ_SECTION( "rtti.natives",           ReadRttiNatives );
     READ_SECTION( "rtti.enums",             ReadRttiEnums );
     READ_SECTION( "rtti.typedefs",          ReadRttiTypeDefs );
     READ_SECTION( "rtti.typesets",          ReadRttiTypeSets );
@@ -294,9 +305,15 @@ void SmxFile::ReadSections()
     READ_SECTION( "rtti.fields",            ReadRttiFields );
     READ_SECTION( "rtti.enumstruct_fields", ReadRttiEnumStructFields );
     READ_SECTION( "rtti.enumstructs",       ReadRttiEnumStructs );
+    READ_SECTION( "rtti.methods",           ReadRttiMethods );
+    READ_SECTION( "rtti.natives",           ReadRttiNatives );
     READ_SECTION( ".dbg.globals",           ReadDbgGlobals );
     READ_SECTION( ".dbg.locals",            ReadDbgLocals );
     READ_SECTION( ".dbg.methods",           ReadDbgMethods );
+    READ_SECTION( ".publics",               ReadPublics );
+    READ_SECTION( ".pubvars",               ReadPubvars );
+    READ_SECTION( ".natives",               ReadNatives );
+    // TODO: Also read legacy debug sections (.dbg.symbols, .dbg.natives)
 }
 #undef READ_SECTION
 
@@ -317,6 +334,62 @@ void SmxFile::ReadData( const char* name, size_t offset, size_t size )
 void SmxFile::ReadNames( const char* name, size_t offset, size_t size )
 {
     names_ = image_.get() + offset;
+}
+
+void SmxFile::ReadPublics( const char* name, size_t offset, size_t size )
+{
+    // Already filled by .rtti.methods
+    if( !functions_.empty() )
+        return;
+
+    auto* rows = (sp_file_publics_t*)(image_.get() + offset);
+    size_t row_count = size / sizeof( sp_file_publics_t );
+    for( size_t i = 0; i < row_count; i++ )
+    {
+        SmxFunction func;
+        func.name = names_ + rows[i].name;
+        func.pcode_start = rows[i].address;
+        // No pcode_end for the .publics section, just set it to end of .code section
+        func.pcode_end = code_size();
+
+        functions_.push_back( func );
+    }
+}
+
+void SmxFile::ReadPubvars( const char* name, size_t offset, size_t size )
+{
+    // Already filled by .dbg.globals
+    if( !globals_.empty() )
+        return;
+
+    auto* rows = (sp_file_pubvars_t*)(image_.get() + offset);
+    size_t row_count = size / sizeof( sp_file_pubvars_t );
+    for( size_t i = 0; i < row_count; i++ )
+    {
+        SmxVariable global;
+        global.name = names_ + rows[i].name;
+        global.address = rows[i].address;
+        global.vclass = SmxVariableClass::GLOBAL;
+
+        globals_.push_back( global );
+    }
+}
+
+void SmxFile::ReadNatives( const char* name, size_t offset, size_t size )
+{
+    // Already filled by .rtti.natives
+    if( !natives_.empty() )
+        return;
+
+    auto* rows = (sp_file_natives_t*)(image_.get() + offset);
+    size_t row_count = size / sizeof( sp_file_natives_t );
+    for( size_t i = 0; i < row_count; i++ )
+    {
+        SmxNative native;
+        native.name = names_ + rows[i].name;
+
+        natives_.push_back( native );
+    }
 }
 
 void SmxFile::ReadRttiData( const char* name, size_t offset, size_t size )
