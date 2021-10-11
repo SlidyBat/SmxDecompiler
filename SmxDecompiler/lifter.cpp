@@ -684,7 +684,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				auto* call = new ILCall( params[0] );
 				for( cell_t i = 0; i < nargs->value(); i++ )
 				{
-					call->AddArg( Pop() );
+					call->AddArg( Pop()->value() );
 				}
 				ILTempVar* result = MakeTemp( call );
 				ilbb.Add( result );

@@ -201,7 +201,7 @@ public:
 
 	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
 	{
-		assert( left_ == target || right_ );
+		assert( left_ == target || right_ == target );
 		replacement->AddUse( this );
 		if( left_ == target )
 		{
@@ -236,11 +236,21 @@ public:
 		:
 		stack_offset_( stack_offset ),
 		value_( value )
-	{}
+	{
+		if( value )
+			value->AddUse( this );
+	}
 
-	void SetValue( ILNode* val ) { value_ = val; }
+	void SetValue( ILNode* val ) { value_ = val; value_->AddUse( this ); }
 	ILNode* value() const { return value_; }
 	int stack_offset() const { return stack_offset_; }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( value_ == target );
+		replacement->AddUse( this );
+		value_ = replacement;
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitLocalVar( this ); }
 private:
@@ -289,6 +299,7 @@ public:
 		base_( base ),
 		index_( index )
 	{
+		base->AddUse( this );
 		index->AddUse( this );
 	}
 
@@ -297,9 +308,16 @@ public:
 
 	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
 	{
-		assert( index_ == target );
+		assert( base_ == target || index_ == target );
 		replacement->AddUse( this );
-		index_ = replacement;
+		if( base_ == target )
+		{
+			base_ = replacement;
+		}
+		else
+		{
+			index_ = replacement;
+		}
 	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitArrayElementVar( this ); }
@@ -611,6 +629,11 @@ protected:
 	{
 		node->left()->Accept( this );
 		node->right()->Accept( this );
+	}
+	virtual void VisitLocalVar( ILLocalVar* node )
+	{
+		if( node->value() )
+			node->value()->Accept( this );
 	}
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
 	{

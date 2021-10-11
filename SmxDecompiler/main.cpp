@@ -41,6 +41,8 @@ int main()
 
 		CodeFixer fixer( smx );
 		fixer.ApplyFixes( *ilcfg );
+		typer.PopulateTypes( *ilcfg );
+		typer.PropagateTypes( *ilcfg );
 
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();

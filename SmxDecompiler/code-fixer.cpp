@@ -2,15 +2,40 @@
 
 #include "il.h"
 
-// When arrays are loaded from / stored into at index 0, there is no indexing operation
-// This class fixes up those cases to add in the index into first element
+// Sometimes globals are referenced by their constant address.
+// To the lifter, this looks like just a regular constant, but
+// it should be interpreted as a variable.
+// 
+// Before:
+//  `2332[i] = 0`
+// After:
+//  `g_var[i] = 0`
+// 
+class FixConstGlobals : public RecursiveILVisitor
+{
+public:
+	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
+	{
+		if( auto* constant = dynamic_cast<ILConst*>(node->base()) )
+		{
+			auto* var = new ILGlobalVar( constant->value() );
+			constant->ReplaceUsesWith( var );
+		}
+	}
+};
+
+// When arrays are loaded from / stored into at index 0, there is no indexing operation.
+// This class fixes up those cases to add in the index into first element. It also fixes
+// up cases where addition is used to index into an array.
 // 
 // Before:
 //  `arr = x`
 //  `x = arr`
+//  `PrintToServer("%s", arr + i)`
 // After:
 //  `arr[0] = x`
 //  `x = arr[0]`
+//  `PrintToServer("%s", arr[i])`
 //
 class FixArrays : public RecursiveILVisitor
 {
@@ -44,6 +69,35 @@ public:
 
 		ILArrayElementVar* new_var = new ILArrayElementVar( node->var(), new ILConst( 0 ) );
 		node->ReplaceParam( node->var(), new_var );
+	}
+	virtual void VisitBinary( ILBinary* node ) override
+	{
+		if( node->op() == ILBinary::ADD )
+		{
+			ILVar* base = nullptr;
+			ILNode* index = nullptr;
+			if( ILVar* var = dynamic_cast<ILVar*>(node->left()) )
+			{
+				if( var->type() && var->type()->dimcount > 0 )
+				{
+					base = var;
+					index = node->right();
+				}
+			}
+			if( ILVar* var = dynamic_cast<ILVar*>(node->right()) )
+			{
+				if( var->type() && var->type()->dimcount > 0 )
+				{
+					base = var;
+					index = node->left();
+				}
+			}
+
+			if( !index || !base )
+				return;
+
+			node->ReplaceUsesWith( new ILArrayElementVar( base, index ) );
+		}
 	}
 };
 
@@ -173,6 +227,9 @@ public:
 
 void CodeFixer::ApplyFixes( ILControlFlowGraph& cfg ) const
 {
+	FixConstGlobals fix_const_globals;
+	VisitAllNodes( cfg, fix_const_globals );
+
 	FixArrays arrays;
 	VisitAllNodes( cfg, arrays );
 

@@ -10,6 +10,8 @@ public:
 
 	virtual void VisitLocalVar( ILLocalVar* node )
 	{
+		RecursiveILVisitor::VisitLocalVar( node );
+
 		// This has already been filled, can skip
 		if( node->smx_var() )
 			return;
@@ -83,7 +85,8 @@ private:
 class TypePropagator : public ILVisitor
 {
 public:
-	TypePropagator()
+	TypePropagator( const SmxFunction* func ) :
+		func_( func )
 	{
 		int_type_ = new SmxVariableType;
 		int_type_->tag = SmxVariableType::INT;
@@ -305,13 +308,19 @@ public:
 	}
 	virtual void VisitReturn( ILReturn* node )
 	{
-		Visit( node->value() );
+		if( node->value() )
+		{
+			PushType( func_->signature.ret );
+			Visit( node->value() );
+			PopType();
+		}
 	}
 private:
 	const SmxVariableType* type() const { return type_stack_.empty() ? nullptr : type_stack_.back(); }
 	void PushType( const SmxVariableType* type ) { type_stack_.push_back( type ); }
 	void PopType() { type_stack_.pop_back(); }
 private:
+	const SmxFunction* func_;
 	SmxVariableType* int_type_;
 	SmxVariableType* bool_type_;
 	SmxVariableType* float_type_;
@@ -324,7 +333,6 @@ void Typer::PopulateTypes( ILControlFlowGraph& cfg )
 	const SmxFunction* func = smx_->FindFunctionAt( pc );
 
 	FillSmxVars( cfg, func );
-	PropagateTypes( cfg, func );
 }
 
 void Typer::FillSmxVars( ILControlFlowGraph& cfg, const SmxFunction* func )
@@ -333,9 +341,12 @@ void Typer::FillSmxVars( ILControlFlowGraph& cfg, const SmxFunction* func )
 	VisitAllNodes( cfg, fill_smx_vars );
 }
 
-void Typer::PropagateTypes( ILControlFlowGraph& cfg, const SmxFunction* func )
+void Typer::PropagateTypes( ILControlFlowGraph& cfg )
 {
-	TypePropagator propagator;
+	cell_t pc = cfg.Entry().pc();
+	const SmxFunction* func = smx_->FindFunctionAt( pc );
+
+	TypePropagator propagator( func );
 	VisitAllNodes( cfg, propagator );
 }
 
