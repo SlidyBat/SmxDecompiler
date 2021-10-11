@@ -353,7 +353,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			{
 				ILVar* arr = GetVar( alt );
 				auto* elem = new ILArrayElementVar( arr, pri );
-				ilbb.Add( new ILLoad( elem ) );
+				pri = new ILLoad( elem );
 				break;
 			}
 			case SMX_OP_IDXADDR:
