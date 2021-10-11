@@ -498,6 +498,7 @@ std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* typ
 	switch( type->tag )
 	{
 		case SmxVariableType::UNKNOWN:
+		case SmxVariableType::VOID:
 		case SmxVariableType::INT:
 		case SmxVariableType::ANY:
 			assert( type->dimcount == 0 );
@@ -528,10 +529,10 @@ std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* typ
 		{
 			if( type->dimcount == 0 )
 			{
-				return std::to_string( *val );
+				return std::string("'") + BuildEscapedChar(*val, '\'') + "'";
 			}
 
-			return std::string("\"") + (char*)smx_->data(*val) + "\"";
+			return BuildStringLiteral( (char*)smx_->data(*val) );
 		}
 
 		case SmxVariableType::ENUM:
@@ -575,5 +576,56 @@ void CodeWriter::Indent()
 void CodeWriter::Dedent()
 {
 	indent_--;
+}
+
+std::string CodeWriter::BuildStringLiteral( const char* str )
+{
+	std::string lit;
+	lit += '"';
+	for( const char* c = str; *c; c++ )
+	{
+		lit += BuildEscapedChar( *c, '"' );
+	}
+	lit += '"';
+
+	return lit;
+}
+
+std::string CodeWriter::BuildEscapedChar( char c, char quote )
+{
+	std::string lit;
+	if( c == '\\' )
+	{
+		lit += "\\\\";
+	}
+	else if( c == quote )
+	{
+		lit += '\\';
+		lit += quote;
+	}
+	else if( (unsigned char)c >= 0x20 )
+	{
+		lit += c;
+	}
+	else if( c == '\n' )
+	{
+		lit += "\\n";
+	}
+	else if( c == '\t' )
+	{
+		lit += "\\t";
+	}
+	else if( c == '\r' )
+	{
+		lit += "\\r";
+	}
+	else
+	{
+		char hex[8];
+		snprintf( hex, sizeof( hex ), "\\x%02x", c );
+		lit += hex;
+	}
+
+	return lit;
 }
 

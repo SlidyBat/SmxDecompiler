@@ -45,6 +45,9 @@ private:
 	std::string Tabs();
 	void Indent();
 	void Dedent();
+
+	std::string BuildStringLiteral( const char* str );
+	std::string BuildEscapedChar( char c, char quote );
 private:
 	SmxFile* smx_;
 	SmxFunction* func_;
