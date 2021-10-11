@@ -180,6 +180,7 @@
     <ClCompile Include="third_party\zlib\trees.c" />
     <ClCompile Include="third_party\zlib\uncompr.c" />
     <ClCompile Include="third_party\zlib\zutil.c" />
+    <ClCompile Include="typer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cfg-builder.h" />
@@ -205,6 +206,7 @@
     <ClInclude Include="third_party\zlib\zconf.h" />
     <ClInclude Include="third_party\zlib\zlib.h" />
     <ClInclude Include="third_party\zlib\zutil.h" />
+    <ClInclude Include="typer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

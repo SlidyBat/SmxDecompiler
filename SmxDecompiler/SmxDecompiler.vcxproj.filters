@@ -65,6 +65,7 @@
     <ClCompile Include="il-disasm.cpp" />
     <ClCompile Include="structurizer.cpp" />
     <ClCompile Include="code-writer.cpp" />
+    <ClCompile Include="typer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="third_party\zlib\crc32.h">
@@ -112,5 +113,6 @@
     <ClInclude Include="structurizer.h" />
     <ClInclude Include="code-writer.h" />
     <ClInclude Include="statement.h" />
+    <ClInclude Include="typer.h" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "il-cfg.h"
+#include "smx-file.h"
 
 #include <vector>
 #include <string>
@@ -51,14 +52,6 @@ public:
 	virtual void VisitInterval( ILInterval* node ) {}
 };
 
-enum class ILType
-{
-	UNKNOWN,
-	INT,
-	FLOAT,
-	STRING
-};
-
 class ILNode
 {
 public:
@@ -72,11 +65,15 @@ public:
 	size_t num_uses() const { return uses_.size(); }
 	ILNode* use( size_t index ) { return uses_[index]; }
 	
+	const SmxVariableType* type() const { return type_; }
+	void SetType( const SmxVariableType* type ) { type_ = type; }
+
 	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) {}
 
 	virtual void Accept( ILVisitor* visitor ) = 0;
 private:
 	std::vector<ILNode*> uses_;
+	const SmxVariableType* type_;
 };
 
 class ILConst : public ILNode
@@ -226,10 +223,10 @@ private:
 class ILVar : public ILNode
 {
 public:
-	ILType type() const { return type_; }
-	void SetType( ILType type ) { type_ = type; }
+	SmxVariable* smx_var() const { return var_; }
+	void SetSmxVar( SmxVariable* var ) { var_ = var; }
 private:
-	ILType type_ = ILType::UNKNOWN;
+	SmxVariable* var_;
 };
 
 class ILLocalVar : public ILVar
@@ -581,4 +578,55 @@ public:
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitInterval( this ); }
 private:
 	ILBlock* inner_;
+};
+
+class RecursiveILVisitor : public ILVisitor
+{
+protected:
+	virtual void VisitUnary( ILUnary* node ) override
+	{
+		node->val()->Accept( this );
+	}
+	virtual void VisitBinary( ILBinary* node ) override
+	{
+		node->left()->Accept( this );
+		node->right()->Accept( this );
+	}
+	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
+	{
+		node->base()->Accept( this );
+		node->index()->Accept( this );
+	}
+	virtual void VisitLoad( ILLoad* node ) override
+	{
+		node->var()->Accept( this );
+	}
+	virtual void VisitStore( ILStore* node ) override
+	{
+		node->var()->Accept( this );
+		node->val()->Accept( this );
+	}
+	virtual void VisitJumpCond( ILJumpCond* node ) override
+	{
+		node->condition()->Accept( this );
+	}
+	virtual void VisitSwitch( ILSwitch* node ) override
+	{
+		node->value()->Accept( this );
+	}
+	virtual void VisitCall( ILCall* node ) override
+	{
+		for( size_t i = 0; i < node->num_args(); i++ )
+			node->arg( i )->Accept( this );
+	}
+	virtual void VisitNative( ILNative* node ) override
+	{
+		for( size_t i = 0; i < node->num_args(); i++ )
+			node->arg( i )->Accept( this );
+	}
+	virtual void VisitReturn( ILReturn* node ) override
+	{
+		if( node->value() )
+			node->value()->Accept( this );
+	}
 };

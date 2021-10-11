@@ -4,6 +4,7 @@
 #include "cfg-builder.h"
 #include "lifter.h"
 #include "il-disasm.h"
+#include "typer.h"
 #include "structurizer.h"
 #include "code-writer.h"
 
@@ -33,6 +34,9 @@ int main()
 
 		PcodeLifter lifter( smx );
 		ILControlFlowGraph* ilcfg = lifter.Lift( cfg );
+
+		Typer typer( smx );
+		typer.PopulateTypes( *ilcfg );
 
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();
