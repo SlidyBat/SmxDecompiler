@@ -284,7 +284,7 @@ private:
 class ILArrayElementVar : public ILVar
 {
 public:
-	ILArrayElementVar( ILVar* base, ILNode* index )
+	ILArrayElementVar( ILNode* base, ILNode* index )
 		:
 		base_( base ),
 		index_( index )
@@ -292,7 +292,7 @@ public:
 		index->AddUse( this );
 	}
 
-	ILVar* base() { return base_; }
+	ILNode* base() { return base_; }
 	ILNode* index() { return index_; }
 
 	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
@@ -304,7 +304,7 @@ public:
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitArrayElementVar( this ); }
 private:
-	ILVar* base_;
+	ILNode* base_;
 	ILNode* index_;
 };
 

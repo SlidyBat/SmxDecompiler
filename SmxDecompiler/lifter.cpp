@@ -438,7 +438,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			}
 			case SMX_OP_INC_I:
 			{
-				auto* var = dynamic_cast<ILGlobalVar*>( pri );
+				auto* var = GetVar( pri );
 				assert( var );
 				ilbb.Add( new ILStore( var, new ILUnary( new ILLoad( var ), ILUnary::INC ) ) );
 				break;
@@ -974,6 +974,22 @@ ILVar* PcodeLifter::GetVar( ILNode* node ) const
 	{
 		node = new ILGlobalVar( constant->value() );
 		constant->ReplaceUsesWith( node );
+	}
+
+	// Turn addition into indexing operation
+	if( auto* add = dynamic_cast<ILBinary*>( node ) )
+	{
+		if( add->op() == ILBinary::ADD )
+		{
+			node = new ILArrayElementVar( add->right(), add->left() );
+			add->ReplaceUsesWith( node );
+		}
+	}
+
+	// Remove load wrapped around arg
+	if( auto* load = dynamic_cast<ILLoad*>( node ) )
+	{
+		return load->var();
 	}
 
 	return dynamic_cast<ILVar*>(node);
