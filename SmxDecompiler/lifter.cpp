@@ -758,6 +758,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 					CaseTableEntry entry;
 					entry.value = casetbl[3 + i * 2];
 					entry.address = ilcfg_->FindBlockAt( casetbl[3 + i * 2 + 1] );
+					cases.push_back( entry );
 				}
 				ilbb.Add( new ILSwitch( pri, default_case, std::move( cases ) ) );
 				break;
@@ -838,9 +839,9 @@ void PcodeLifter::MovePhis( ILBlock& ilbb )
 		{
 			if( auto* phi = dynamic_cast<ILPhi*>(tmp->value()) )
 			{
-				// Add declaration at idom
+				// Add declaration at immed_dominator
 				tmp->SetValue( nullptr );
-				ilbb.idom()->Prepend( tmp );
+				ilbb.immed_dominator()->Prepend( tmp );
 
 				// Add stores on incoming edges
 				assert( phi->num_inputs() == ilbb.num_in_edges() );

@@ -37,6 +37,9 @@ int main()
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();
 
+		//ILDisassembler ildisasm( smx );
+		//std::cout << ildisasm.DisassembleCFG( *ilcfg );
+
 		CodeWriter writer( smx, func.name );
 		std::string code = writer.Build( func_stmt );
 		std::cout << code << std::endl;

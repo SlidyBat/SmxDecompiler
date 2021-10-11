@@ -48,8 +48,8 @@ void Structurizer::FindBlocksInLoop( ILBlock* head, ILBlock* latch, const std::v
 	for( size_t i = head->id() + 1; i < latch->id(); i++ )
 	{
 		ILBlock* bb = &derived_[0]->block( i );
-		ILBlock* idom = bb->idom();
-		if( LoopHead( idom ) == head &&
+		ILBlock* immed_dominator = bb->immed_dominator();
+		if( LoopHead( immed_dominator ) == head &&
 			LoopHead( bb ) == nullptr &&
 			std::find( interval.begin(), interval.end(), bb ) != interval.end() )
 		{

@@ -31,7 +31,9 @@ public:
 	ILBlock& out_edge( size_t index ) const { return *out_edges_[index]; }
 
 	void SetImmediateDominator( ILBlock* block ) { idom_ = block; }
-	ILBlock* idom() const { return idom_; }
+	ILBlock* immed_dominator() const { return idom_; }
+	void SetImmediatePostDominator( ILBlock* block ) { post_idom_ = block; }
+	ILBlock* immed_post_dominator() const { return post_idom_; }
 
 	bool Dominates( ILBlock* block ) const;
 
@@ -51,6 +53,7 @@ private:
 	std::vector<ILBlock*> in_edges_;
 	std::vector<ILBlock*> out_edges_;
 	ILBlock* idom_ = nullptr;
+	ILBlock* post_idom_ = nullptr;
 };
 
 class ILControlFlowGraph
@@ -61,6 +64,7 @@ public:
 	ILBlock& Entry() { return blocks_[0]; }
 
 	size_t num_blocks() const { return blocks_.size(); }
+	const ILBlock& block( size_t index ) const { return blocks_[index]; }
 	ILBlock& block( size_t index ) { return blocks_[index]; }
 
 	void SetNumArgs( int nargs ) { nargs_ = nargs; }
@@ -74,6 +78,7 @@ public:
 	ILControlFlowGraph* Next();
 private:
 	ILBlock* Intersect( ILBlock& b1, ILBlock& b2 );
+	ILBlock* IntersectPost( ILBlock& b1, ILBlock& b2 );
 	std::vector<ILBlock*> IntervalForHeader( ILBlock& header );
 	size_t FindOuterTarget( const std::vector<std::vector<ILBlock*>> intervals, ILBlock* target );
 private:

@@ -10,6 +10,7 @@ public:
 
 	std::string DisassembleNode( ILNode* node );
 	std::string DisassembleBlock( const ILBlock& block );
+	std::string DisassembleCFG( const ILControlFlowGraph& cfg );
 private:
 	virtual void VisitConst( ILConst* node ) override;
 	virtual void VisitUnary( ILUnary* node ) override;

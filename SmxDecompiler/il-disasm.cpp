@@ -25,6 +25,35 @@ std::string ILDisassembler::DisassembleBlock( const ILBlock& block )
 	return block_disasm.str();
 }
 
+std::string ILDisassembler::DisassembleCFG( const ILControlFlowGraph& cfg )
+{
+	std::ostringstream cfg_disasm;
+	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	{
+		const ILBlock& bb = cfg.block( i );
+		cfg_disasm << "===== BB" << bb.id() << " =====\n";
+		for( size_t in = 0; in < bb.num_in_edges(); in++ )
+		{
+			cfg_disasm << "> Incoming edge: BB" << bb.in_edge( in ).id() << '\n';
+		}
+		for( size_t out = 0; out < bb.num_out_edges(); out++ )
+		{
+			cfg_disasm << "> Outgoing edge: BB" << bb.out_edge( out ).id() << '\n';
+		}
+		for( ILBlock* p = bb.immed_dominator(); ; p = p->immed_dominator() )
+		{
+			cfg_disasm << "> Dominator: BB" << p->id() << '\n';
+			if( p == p->immed_dominator() )
+			{
+				break;
+			}
+		}
+
+		cfg_disasm << DisassembleBlock( bb ) << '\n';
+	}
+	return cfg_disasm.str();
+}
+
 void ILDisassembler::VisitConst( ILConst* node )
 {
 	disasm_ << node->value();

@@ -23,6 +23,7 @@ ILBlock* ILControlFlowGraph::FindBlockAt( cell_t pc )
 
 void ILControlFlowGraph::ComputeDominance()
 {
+	// Compute immediate dominators
 	blocks_[0].SetImmediateDominator( &blocks_[0] );
 
 	bool changed = true;
@@ -38,15 +39,55 @@ void ILControlFlowGraph::ComputeDominance()
 			for( size_t in = 1; in < b.num_in_edges(); in++ )
 			{
 				ILBlock& p = b.in_edge( in );
-				if( p.idom() != nullptr )
+				if( p.immed_dominator() != nullptr )
 				{
 					new_idom = Intersect( p, *new_idom );
 				}
 			}
 
-			if( b.idom() != new_idom )
+			if( b.immed_dominator() != new_idom )
 			{
 				b.SetImmediateDominator( new_idom );
+				changed = true;
+			}
+		}
+	}
+
+	// Compute immediate post-dominators
+	int last = (int)blocks_.size() - 1;
+	blocks_[last].SetImmediatePostDominator( &blocks_[last] );
+
+	changed = true;
+	while( changed )
+	{
+		changed = false;
+		for( int i = last - 1; i >= 0; i-- )
+		{
+			ILBlock& b = blocks_[i];
+			if( !b.num_out_edges() )
+			{
+				b.SetImmediatePostDominator( &b );
+				continue;
+			}
+
+			ILBlock* new_idom = &b.out_edge( b.num_out_edges() - 1 );
+			for( int out = b.num_out_edges() - 2; out >= 0; out-- )
+			{
+				ILBlock& p = b.out_edge( out );
+				if( p.immed_post_dominator() != nullptr )
+				{
+					new_idom = IntersectPost( p, *new_idom );
+					if( !new_idom )
+						break;
+				}
+			}
+
+			if( new_idom == nullptr )
+				new_idom = &b;
+
+			if( b.immed_post_dominator() != new_idom )
+			{
+				b.SetImmediatePostDominator( new_idom );
 				changed = true;
 			}
 		}
@@ -133,11 +174,37 @@ ILBlock* ILControlFlowGraph::Intersect( ILBlock& b1, ILBlock& b2 )
 	{
 		while( finger1->id() > finger2->id() )
 		{
-			finger1 = finger1->idom();
+			finger1 = finger1->immed_dominator();
 		}
 		while( finger2->id() > finger1->id() )
 		{
-			finger2 = finger2->idom();
+			finger2 = finger2->immed_dominator();
+		}
+	}
+	return finger1;
+}
+
+ILBlock* ILControlFlowGraph::IntersectPost( ILBlock& b1, ILBlock& b2 )
+{
+	ILBlock* finger1 = &b1;
+	ILBlock* finger2 = &b2;
+	while( finger1 != finger2 )
+	{
+		while( finger1->id() < finger2->id() )
+		{
+			if( finger1 == finger1->immed_post_dominator() )
+				return nullptr;
+			finger1 = finger1->immed_post_dominator();
+			if( !finger1 )
+				return finger2;
+		}
+		while( finger2->id() < finger1->id() )
+		{
+			if( finger2 == finger2->immed_post_dominator() )
+				return nullptr;
+			finger2 = finger2->immed_post_dominator();
+			if( !finger2 )
+				return finger1;
 		}
 	}
 	return finger1;
@@ -214,13 +281,13 @@ void ILBlock::AddTarget( ILBlock& bb )
 
 bool ILBlock::Dominates( ILBlock* block ) const
 {
-	for( ILBlock* p = block->idom(); ; p = p->idom() )
+	for( ILBlock* p = block->immed_dominator(); ; p = p->immed_dominator() )
 	{
 		if( p == this )
 		{
 			return true;
 		}
-		if( p == p->idom() )
+		if( p == p->immed_dominator() )
 		{
 			break;
 		}
