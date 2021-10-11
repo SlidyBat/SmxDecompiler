@@ -16,7 +16,7 @@ int main()
 	{
 		SmxVariable& var = smx.global( i );
 		CodeWriter writer( smx, "" );
-		std::cout << writer.Type( var.type ) << " " << var.name << ';' << std::endl;
+		std::cout << writer.BuildVarDecl( var.name, &var.type ) << ';' << std::endl;
 	}
 	std::cout << std::endl;
 

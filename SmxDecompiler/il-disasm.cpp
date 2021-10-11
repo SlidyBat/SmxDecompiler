@@ -148,7 +148,10 @@ void ILDisassembler::VisitLocalVar( ILLocalVar* node )
 
 	if( !found_name )
 	{
-		disasm_ << "local_" << node->stack_offset();
+		if( node->stack_offset() < 0 )
+			disasm_ << "local_" << -node->stack_offset();
+		else
+			disasm_ << "arg" << ( node->stack_offset() / 4 - 3 + 1 );
 	}
 
 	if( node->value() && top_level_ )

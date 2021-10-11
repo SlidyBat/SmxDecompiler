@@ -8,10 +8,10 @@ CodeWriter::CodeWriter( SmxFile& smx, const char* function ) :
 
 std::string CodeWriter::Build( Statement* stmt )
 {
-	code_ << "public int " << func_->name << "()\n";
+	code_ << BuildFuncDecl( func_->name, &func_->signature ) << '\n';
 	code_ << "{\n";
 	Indent();
-	stmt->Accept( this );
+	Visit( stmt );
 	Dedent();
 	code_ << "}\n";
 	return code_.str();
@@ -19,34 +19,52 @@ std::string CodeWriter::Build( Statement* stmt )
 
 void CodeWriter::VisitBasicStatement( BasicStatement * stmt )
 {
-	Build( stmt->block() );
+	for( size_t node = 0; node < stmt->num_nodes(); node++ )
+	{
+		code_ << Tabs() << Build( stmt->node( node ) ) << ";\n";
+	}
 }
 
 void CodeWriter::VisitSequenceStatement( SequenceStatement* stmt )
 {
 	for( size_t i = 0; i < stmt->num_statements(); i++ )
 	{
-		stmt->statement( i )->Accept( this );
+		Visit( stmt->statement( i ) );
 	}
 }
 
 void CodeWriter::VisitIfStatement( IfStatement* stmt )
 {
-	code_ << Tabs() << "if (" << Build( stmt->condition() ) << ")\n";
+	bool old = in_else_if_;
+	if( in_else_if_ )
+		code_ << Tabs() << "else if (" << Build( stmt->condition() ) << ")\n";
+	else
+		code_ << Tabs() << "if (" << Build( stmt->condition() ) << ")\n";
 	code_ << Tabs() << "{\n";
 	Indent();
-	stmt->then_branch()->Accept( this );
+	in_else_if_ = false;
+	Visit( stmt->then_branch() );
 	Dedent();
 	code_ << Tabs() << "}\n";
 	if( stmt->else_branch() )
 	{
-		code_ << Tabs() << "else\n";
-		code_ << Tabs() << "{\n";
-		Indent();
-		stmt->else_branch()->Accept( this );
-		Dedent();
-		code_ << Tabs() << "}\n";
+		if( auto* else_if = dynamic_cast<IfStatement*>(stmt->else_branch()) )
+		{
+			in_else_if_ = true;
+			Visit( else_if );
+		}
+		else
+		{
+			in_else_if_ = false;
+			code_ << Tabs() << "else\n";
+			code_ << Tabs() << "{\n";
+			Indent();
+			Visit( stmt->else_branch() );
+			Dedent();
+			code_ << Tabs() << "}\n";
+		}
 	}
+	in_else_if_ = old;
 }
 
 void CodeWriter::VisitWhileStatement( WhileStatement* stmt )
@@ -54,7 +72,7 @@ void CodeWriter::VisitWhileStatement( WhileStatement* stmt )
 	code_ << Tabs() << "while (" << Build( stmt->condition() ) << ")\n";
 	code_ << Tabs() << "{\n";
 	Indent();
-	stmt->body()->Accept( this );
+	Visit( stmt->body() );
 	Dedent();
 	code_ << Tabs() << "}\n";
 }
@@ -68,7 +86,7 @@ void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
 	{
 		code_ << Tabs() << "case " << stmt->case_entry( i ).value << ":\n";
 		Indent();
-		stmt->case_entry( i ).body->Accept( this );
+		Visit( stmt->case_entry( i ).body );
 		Dedent();
 	}
 
@@ -76,7 +94,7 @@ void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
 	{
 		code_ << Tabs() << "default:\n";
 		Indent();
-		stmt->default_case()->Accept( this );
+		Visit( stmt->default_case() );
 		Dedent();
 	}
 	Dedent();
@@ -85,13 +103,15 @@ void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
 
 void CodeWriter::VisitConst( ILConst* node )
 {
-	code_ << node->value();
+	cell_t value = node->value();
+	code_ << BuildTypedValue( &value, node->type() );
 }
 
 void CodeWriter::VisitUnary( ILUnary* node )
 {
 	switch( node->op() )
 	{
+	case ILUnary::FLOATNOT:
 	case ILUnary::NOT:
 		code_ << "!" << Build( node->val() );
 		break;
@@ -104,7 +124,6 @@ void CodeWriter::VisitUnary( ILUnary* node )
 
 	case ILUnary::FABS:
 	case ILUnary::FLOAT:
-	case ILUnary::FLOATNOT:
 	case ILUnary::RND_TO_NEAREST:
 	case ILUnary::RND_TO_CEIL:
 	case ILUnary::RND_TO_ZERO:
@@ -144,57 +163,62 @@ void CodeWriter::VisitBinary( ILBinary* node )
 		case ILBinary::SLESS:    code_ << Build( node->left() ) << " < " << Build( node->right() ); break;
 		case ILBinary::SLEQ:     code_ << Build( node->left() ) << " <= " << Build( node->right() ); break;
 
-		case ILBinary::FLOATADD: code_ << Build( node->left() ) << " f+ " << Build( node->right() ); break;
-		case ILBinary::FLOATSUB: code_ << Build( node->left() ) << " f- " << Build( node->right() ); break;
-		case ILBinary::FLOATMUL: code_ << Build( node->left() ) << " f* " << Build( node->right() ); break;
-		case ILBinary::FLOATDIV: code_ << Build( node->left() ) << " f/ " << Build( node->right() ); break;
+		case ILBinary::FLOATADD: code_ << Build( node->left() ) << " + " << Build( node->right() ); break;
+		case ILBinary::FLOATSUB: code_ << Build( node->left() ) << " - " << Build( node->right() ); break;
+		case ILBinary::FLOATMUL: code_ << Build( node->left() ) << " * " << Build( node->right() ); break;
+		case ILBinary::FLOATDIV: code_ << Build( node->left() ) << " / " << Build( node->right() ); break;
 
 		case ILBinary::FLOATCMP: code_ << Build( node->left() ) << " fcmp " << Build( node->right() ); break;
-		case ILBinary::FLOATGT:  code_ << Build( node->left() ) << " f> " << Build( node->right() ); break;
-		case ILBinary::FLOATGE:  code_ << Build( node->left() ) << " f>= " << Build( node->right() ); break;
-		case ILBinary::FLOATLE:  code_ << Build( node->left() ) << " f<= " << Build( node->right() ); break;
-		case ILBinary::FLOATLT:  code_ << Build( node->left() ) << " f< " << Build( node->right() ); break;
-		case ILBinary::FLOATEQ:  code_ << Build( node->left() ) << " f== " << Build( node->right() ); break;
-		case ILBinary::FLOATNE:  code_ << Build( node->left() ) << " f!= " << Build( node->right() ); break;
+		case ILBinary::FLOATGT:  code_ << Build( node->left() ) << " > " << Build( node->right() ); break;
+		case ILBinary::FLOATGE:  code_ << Build( node->left() ) << " >= " << Build( node->right() ); break;
+		case ILBinary::FLOATLE:  code_ << Build( node->left() ) << " <= " << Build( node->right() ); break;
+		case ILBinary::FLOATLT:  code_ << Build( node->left() ) << " < " << Build( node->right() ); break;
+		case ILBinary::FLOATEQ:  code_ << Build( node->left() ) << " == " << Build( node->right() ); break;
+		case ILBinary::FLOATNE:  code_ << Build( node->left() ) << " != " << Build( node->right() ); break;
 	}
 }
 
 void CodeWriter::VisitLocalVar( ILLocalVar* node )
 {
-	bool found_name = false;
-	if( func_ )
+	std::string var_name;
+	if( node->smx_var() )
 	{
-		for( size_t i = 0; i < func_->num_locals; i++ )
+		var_name = node->smx_var()->name;
+	}
+	else
+	{
+		if( node->stack_offset() < 0 )
 		{
-			if( func_->locals[i].address == node->stack_offset() )
-			{
-				if( level_ == 1 )
-					code_ << Type( func_->locals[i].type ) << ' ';
-				code_ << func_->locals[i].name;
-				found_name = true;
-				break;
-			}
+			var_name = "local_" + std::to_string( -node->stack_offset() );
+		}
+		else
+		{
+			var_name = "arg" + std::to_string( (node->stack_offset() / 4) - 3 + 1 );
 		}
 	}
 
-	if( !found_name )
+	if( level_ == 1 )
 	{
-		if( level_ == 1 )
-			code_ << Type( node ) << ' ';
-		code_ << "local_" << -node->stack_offset();
-	}
+		// This is a top level node, so it's a variable declaration
+		code_ << BuildVarDecl( var_name, node->type() );
 
-	if( node->value() && level_ == 1 )
+		if( node->value() )
+			code_ << " = " << Build( node->value() );
+	}
+	else
 	{
-		code_ << " = " << Build( node->value() );
+		// Variable is being referenced somewhere after already being declared
+		// Just output the name
+		code_ << var_name;
 	}
 }
 
 void CodeWriter::VisitGlobalVar( ILGlobalVar* node )
 {
-	if( SmxVariable* var = smx_->FindGlobalAt( node->addr() ) )
+	std::string var_name;
+	if( node->smx_var() )
 	{
-		code_ << var->name;
+		code_ << node->smx_var()->name;
 	}
 	else
 	{
@@ -216,10 +240,16 @@ void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )
 
 void CodeWriter::VisitTempVar( ILTempVar* node )
 {
-	code_ << Type( node ) << " tmp_" << node->index();
-	if( node->value() && level_ == 1 )
+	std::string var_name = "tmp_" + std::to_string( node->index() );
+	if( level_ == 1 )
 	{
-		code_ << " = " << Build( node->value() );
+		code_ << BuildVarDecl( var_name, node->type() );
+		if( node->value() )
+			code_ << " = " << Build( node->value() );
+	}
+	else
+	{
+		code_ << var_name;
 	}
 }
 
@@ -266,7 +296,8 @@ void CodeWriter::VisitCall( ILCall* node )
 
 void CodeWriter::VisitNative( ILNative* node )
 {
-	if( SmxNative* native = smx_->FindNativeByIndex( node->native_index() ) )
+	SmxNative* native = smx_->FindNativeByIndex( node->native_index() );
+	if( native )
 	{
 		code_ << native->name;
 	}
@@ -289,7 +320,6 @@ void CodeWriter::VisitNative( ILNative* node )
 
 void CodeWriter::VisitReturn( ILReturn* node )
 {
-
 	code_ << "return";
 	if( node->value() )
 		code_ << " " << Build(node->value());
@@ -305,20 +335,9 @@ void CodeWriter::VisitInterval( ILInterval* node )
 	assert( false );
 }
 
-std::string CodeWriter::Build( ILBlock* block )
+void CodeWriter::Visit( Statement* stmt )
 {
-	for( size_t node = 0; node < block->num_nodes(); node++ )
-	{
-		if( dynamic_cast<ILJump*>( block->node( node ) ) || dynamic_cast<ILJumpCond*>( block->node( node ) ) )
-		{
-			
-		}
-		else
-		{
-			code_ << Tabs() << Build( block->node( node ) ) << ";\n";
-		}
-	}
-	return "";
+	stmt->Accept( this );
 }
 
 std::string CodeWriter::Build( ILNode* node )
@@ -329,58 +348,185 @@ std::string CodeWriter::Build( ILNode* node )
 	return "";
 }
 
-std::string CodeWriter::Type( const SmxVariableType& type )
+std::string CodeWriter::BuildVarDecl( const std::string& var_name, const SmxVariableType* type )
 {
-	std::stringstream type_str;
-	if( type.is_const )
+	std::ostringstream decl_str;
+
+	if( !type )
 	{
-		type_str << "const ";
+		// No type info, just assume int
+		decl_str << "int " << var_name;
+		return decl_str.str();
 	}
 
-	switch( type.tag )
+	if( type->flags & SmxVariableType::IS_CONST )
 	{
+		decl_str << "const ";
+	}
+
+	switch( type->tag )
+	{
+		case SmxVariableType::UNKNOWN:
+			decl_str << "<unknown>";
+			break;
+		case SmxVariableType::VOID:
+			decl_str << "void";
+			break;
 		case SmxVariableType::BOOL:
-			type_str << "bool";
+			decl_str << "bool";
 			break;
 		case SmxVariableType::INT:
-			type_str << "int";
+			decl_str << "int";
 			break;
 		case SmxVariableType::FLOAT:
-			type_str << "float";
+			decl_str << "float";
 			break;
 		case SmxVariableType::CHAR:
-			type_str << "char";
+			decl_str << "char";
 			break;
 		case SmxVariableType::ANY:
-			type_str << "any";
+			decl_str << "any";
+			break;
+		case SmxVariableType::ENUM:
+			decl_str << type->enumeration->name;
+			break;
+		case SmxVariableType::TYPEDEF:
+			decl_str << type->type_def->name;
+			break;
+		case SmxVariableType::TYPESET:
+			decl_str << type->type_set->name;
+			break;
+		case SmxVariableType::CLASSDEF:
+			decl_str << type->classdef->name;
+			break;
+		case SmxVariableType::ENUM_STRUCT:
+			decl_str << type->enum_struct->name;
+			break;
+
+		default:
+			assert( !"Unhandled type" );
+			decl_str << "int";
 			break;
 	}
 
-	for( int i = 0; i < type.dimcount; i++ )
+	if( type->flags & SmxVariableType::BY_REF )
 	{
-		type_str << "[";
-		if( type.dims[i] )
-			type_str << type.dims[i];
-		type_str << "]";
+		decl_str << '&';
 	}
 
-	return type_str.str();
+	decl_str << ' ' << var_name;
+
+	for( int i = 0; i < type->dimcount; i++ )
+	{
+		decl_str << "[";
+		if( type->dims[i] )
+			decl_str << type->dims[i];
+		decl_str << "]";
+	}
+
+	return decl_str.str();
 }
 
-const char* CodeWriter::Type( ILVar* var )
+std::string CodeWriter::BuildFuncDecl( const std::string& func_name, const SmxFunctionSignature* sig )
 {
-	switch( var->type() )
+	std::ostringstream decl_str;
+
+	if( !sig )
 	{
-		case ILType::UNKNOWN:
-		case ILType::INT:
-			return "int";
-		case ILType::FLOAT:
-			return "float";
-		case ILType::STRING:
-			return "char[]";
+		decl_str << "int " << func_name << "()";
+		return decl_str.str();
 	}
 
-	return "<err>";
+	if( !sig->ret )
+	{
+		decl_str << "int ";
+	}
+	else
+	{
+		decl_str << BuildVarDecl( "", sig->ret );
+	}
+
+	decl_str << func_name << '(';
+	for( size_t i = 0; i < sig->nargs; i++ )
+	{
+		if( i != 0 )
+			decl_str << ", ";
+		if( sig->args[i].name )
+		{
+			decl_str << BuildVarDecl( sig->args[i].name, &sig->args[i].type );
+		}
+		else
+		{
+			decl_str << BuildVarDecl( "arg" + std::to_string( i + 1 ), &sig->args[i].type );
+		}
+	}
+	decl_str << ')';
+
+	return decl_str.str();
+}
+
+std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* type )
+{
+	if( !type )
+		return std::to_string( *val );
+
+	switch( type->tag )
+	{
+		case SmxVariableType::UNKNOWN:
+		case SmxVariableType::INT:
+		case SmxVariableType::ANY:
+			assert( type->dimcount == 0 );
+			return std::to_string( *val );
+
+		case SmxVariableType::BOOL:
+			assert( type->dimcount == 0 );
+			return (*val) ? "true" : "false";
+
+		case SmxVariableType::FLOAT:
+		{
+			assert( type->dimcount == 0 );
+
+			union
+			{
+				cell_t c;
+				float f;
+			} x;
+
+			x.c = *val;
+
+			char buf[32];
+			snprintf( buf, sizeof( buf ), "%g", x.f );
+			return buf;
+		}
+
+		case SmxVariableType::CHAR:
+		{
+			if( type->dimcount == 0 )
+			{
+				return std::to_string( *val );
+			}
+
+			return std::string("\"") + (char*)smx_->data(*val) + "\"";
+		}
+
+		case SmxVariableType::ENUM:
+		{
+			// TODO: Figure out what the value corresponds to in the enum?
+			assert( type->dimcount == 0 );
+			return std::to_string( *val );
+		}
+
+		case SmxVariableType::TYPEDEF:
+		{
+			assert( type->dimcount == 0 );
+			SmxFunction* func = smx_->FindFunctionAt( *val );
+			return func->name;
+		}
+
+		default:
+			assert( 0 );
+			return std::to_string( *val );
+	}
 }
 
 std::string CodeWriter::Tabs()

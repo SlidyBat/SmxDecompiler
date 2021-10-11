@@ -45,16 +45,33 @@ private:
 class BasicStatement : public Statement
 {
 public:
-	BasicStatement( ILBlock* block ) :
+	BasicStatement( std::vector<ILNode*> nodes ) :
 		Statement( StatementType::BASIC ),
-		block_( block )
+		nodes_( std::move( nodes ) )
 	{}
+	BasicStatement( ILBlock* block ) :
+		Statement( StatementType::BASIC )
+	{
+		size_t end = block->num_nodes();
 
-	ILBlock* block() { return block_; }
+		// If this is a jump then we don't want to include it, but if it is a fallthrough then keep it
+		if( block->num_out_edges() > 1 ||
+			dynamic_cast<ILJump*>(block->Last()) ||
+			dynamic_cast<ILSwitch*>(block->Last()))
+		{
+			end -= 1;
+		}
+
+		for( size_t i = 0; i < end; i++ )
+			nodes_.push_back( block->node( i ) );
+	}
+
+	size_t num_nodes() const { return nodes_.size(); }
+	ILNode* node( size_t index ) { return nodes_[index]; }
 
 	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitBasicStatement( this ); }
 private:
-	ILBlock* block_;
+	std::vector<ILNode*> nodes_;
 };
 
 class SequenceStatement : public Statement

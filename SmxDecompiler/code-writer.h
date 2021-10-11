@@ -9,7 +9,9 @@ public:
 	CodeWriter( SmxFile& smx, const char* function );
 
 	std::string Build( Statement* stmt );
-	std::string Type( const SmxVariableType& type );
+	std::string BuildVarDecl( const std::string& var_name, const SmxVariableType* type );
+	std::string BuildFuncDecl( const std::string& func_name, const SmxFunctionSignature* sig );
+	std::string BuildTypedValue( cell_t* val, const SmxVariableType* type );
 
 	virtual void VisitBasicStatement( BasicStatement* stmt ) override;
 	virtual void VisitSequenceStatement( SequenceStatement* stmt ) override;
@@ -35,10 +37,8 @@ public:
 	virtual void VisitPhi( ILPhi* node ) override;
 	virtual void VisitInterval( ILInterval* node ) override;
 private:
-	std::string Build( ILBlock* block );
+	void Visit( Statement* stmt );
 	std::string Build( ILNode* node );
-
-	const char* Type( ILVar* var );
 
 	std::string Tabs();
 	void Indent();
@@ -49,4 +49,5 @@ private:
 	std::stringstream code_;
 	int indent_ = 0;
 	int level_ = 0;
+	bool in_else_if_ = false;
 };
