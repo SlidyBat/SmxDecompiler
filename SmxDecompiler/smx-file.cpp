@@ -135,6 +135,23 @@ struct smx_rtti_es_field {
     uint32_t offset;
 };
 
+struct smx_rtti_classdef {
+    uint32_t flags;
+    uint32_t name;
+    uint32_t first_field;
+
+    uint32_t reserved0;
+    uint32_t reserved1;
+    uint32_t reserved2;
+    uint32_t reserved3;
+};
+
+struct smx_rtti_field {
+    uint16_t flags;
+    uint32_t name;
+    uint32_t type_id;
+};
+
 struct smx_rtti_debug_method {
     uint32_t method_index;
     uint32_t first_local;
@@ -301,8 +318,8 @@ void SmxFile::ReadSections()
     READ_SECTION( "rtti.enums",             ReadRttiEnums );
     READ_SECTION( "rtti.typedefs",          ReadRttiTypeDefs );
     READ_SECTION( "rtti.typesets",          ReadRttiTypeSets );
-    READ_SECTION( "rtti.classdefs",         ReadRttiClassdefs );
     READ_SECTION( "rtti.fields",            ReadRttiFields );
+    READ_SECTION( "rtti.classdefs",         ReadRttiClassdefs );
     READ_SECTION( "rtti.enumstruct_fields", ReadRttiEnumStructFields );
     READ_SECTION( "rtti.enumstructs",       ReadRttiEnumStructs );
     READ_SECTION( "rtti.methods",           ReadRttiMethods );
@@ -473,10 +490,42 @@ void SmxFile::ReadRttiTypeSets( const char* name, size_t offset, size_t size )
 
 void SmxFile::ReadRttiClassdefs( const char* name, size_t offset, size_t size )
 {
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
+
+    classdefs_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_classdef*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
+        SmxClassDef classdef;
+        classdef.flags = row->flags;
+        classdef.name = names_ + row->name;
+        if( i < rttihdr->row_count - 1 )
+        {
+            auto* next_row = reinterpret_cast<const smx_rtti_classdef*>(image_.get() + offset + rttihdr->header_size + (i + 1) * rttihdr->row_size);
+            classdef.num_fields = next_row->first_field - row->first_field;
+        }
+        else
+        {
+            classdef.num_fields = fields_.size() - row->first_field;
+        }
+        classdef.fields = &fields_[row->first_field];
+        classdefs_.push_back( classdef );
+    }
 }
 
 void SmxFile::ReadRttiFields( const char* name, size_t offset, size_t size )
 {
+    auto* rttihdr = reinterpret_cast<const smx_rtti_table_header*>(image_.get() + offset);
+
+    fields_.reserve( rttihdr->row_count );
+    for( size_t i = 0; i < rttihdr->row_count; i++ )
+    {
+        auto* row = reinterpret_cast<const smx_rtti_field*>(image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size);
+        SmxField field;
+        field.name = names_ + row->name;
+        field.type = DecodeVariableType( row->type_id );
+        fields_.push_back( field );
+    }
 }
 
 void SmxFile::ReadRttiEnumStructs( const char* name, size_t offset, size_t size )
@@ -514,7 +563,7 @@ void SmxFile::ReadRttiEnumStructFields( const char* name, size_t offset, size_t 
         auto* row = reinterpret_cast<const smx_rtti_es_field*>( image_.get() + offset + rttihdr->header_size + i * rttihdr->row_size );
         SmxESField esf;
         esf.name = names_ + row->name;
-        esf.type_id = row->type_id;
+        esf.type = DecodeVariableType( row->type_id );
         esf.offset = row->offset;
         es_fields_.push_back( esf );
     }
@@ -732,18 +781,44 @@ SmxVariableType SmxFile::DecodeVariableType( unsigned char** data )
             break;
         }
 
-        // TODO
         case cb::kFunction:
-        case cb::kEnum:
-        case cb::kTypedef:
-        case cb::kTypeset:
-        case cb::kClassdef:
-        case cb::kEnumStruct:
-        case cb::kVoid:
-        case cb::kVariadic:
-        case cb::kByRef:
-        case cb::kConst:
             break;
+
+        case cb::kEnum:
+        {
+            uint32_t index = DecodeUint32( &d );
+            type.tag = SmxVariableType::ENUM;
+            type.enumeration = &enums_[index];
+            break;
+        }
+        case cb::kTypedef:
+        {
+            uint32_t index = DecodeUint32( &d );
+            type.tag = SmxVariableType::TYPEDEF;
+            type.type_def = &typedefs_[index];
+            break;
+        }
+        case cb::kTypeset:
+        {
+            uint32_t index = DecodeUint32( &d );
+            type.tag = SmxVariableType::TYPESET;
+            type.type_set = &typesets_[index];
+            break;
+        }
+        case cb::kClassdef:
+        {
+            uint32_t index = DecodeUint32( &d );
+            type.tag = SmxVariableType::CLASSDEF;
+            type.classdef = &classdefs_[index];
+            break;
+        }
+        case cb::kEnumStruct:
+        {
+            uint32_t index = DecodeUint32( &d );
+            type.tag = SmxVariableType::ENUM_STRUCT;
+            type.enum_struct = &enum_structs_[index];
+            break;
+        }
     }
 
     return type;

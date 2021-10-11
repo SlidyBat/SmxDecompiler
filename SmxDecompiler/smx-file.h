@@ -130,7 +130,7 @@ struct SmxTypeSet
 struct SmxESField
 {
 	const char* name;
-	uint32_t type_id;
+	SmxVariableType type;
 	uint32_t offset;
 };
 
@@ -140,6 +140,25 @@ struct SmxEnumStruct
 	size_t num_fields;
 	SmxESField* fields;
 	uint32_t size;
+};
+
+struct SmxField
+{
+	const char* name;
+	SmxVariableType type;
+};
+
+struct SmxClassDef
+{
+	enum SmxClassDefFlags
+	{
+		STRUCT = 0
+	};
+
+	int flags;
+	const char* name;
+	size_t num_fields;
+	SmxField* fields;
 };
 
 class SmxFile
@@ -218,6 +237,8 @@ private:
 	std::vector<SmxTypeSet> typesets_;
 	std::vector<SmxESField> es_fields_;
 	std::vector<SmxEnumStruct> enum_structs_;
+	std::vector<SmxClassDef> classdefs_;
+	std::vector<SmxField> fields_;
 	std::vector<SmxVariable> globals_;
 	std::vector<SmxVariable> locals_;
 };
