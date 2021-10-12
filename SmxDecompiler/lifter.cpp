@@ -523,7 +523,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				// add.c is also used to offset into arrays/enum-structs
 				if( auto* var = dynamic_cast<ILVar*>(pri) )
 				{
-					pri = new ILArrayElementVar( var, new ILConst( params[0] / 4 ) );
+					pri = new ILArrayElementVar( var, new ILConst( params[0] ) );
 				}
 				else
 				{

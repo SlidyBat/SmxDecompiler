@@ -143,6 +143,16 @@ struct SmxEnumStruct
 	size_t num_fields;
 	SmxESField* fields;
 	uint32_t size;
+
+	SmxESField* FindFieldAtOffset( size_t offset )
+	{
+		for( size_t i = 0; i < num_fields; i++ )
+		{
+			if( fields[i].offset == offset )
+				return &fields[i];
+		}
+		return nullptr;
+	}
 };
 
 struct SmxField

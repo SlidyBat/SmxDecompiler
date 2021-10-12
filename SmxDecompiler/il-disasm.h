@@ -19,6 +19,7 @@ private:
 	virtual void VisitGlobalVar( ILGlobalVar* node ) override;
 	virtual void VisitHeapVar( ILHeapVar* node ) override;
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override;
+	virtual void VisitFieldVar( ILFieldVar* node ) override;
 	virtual void VisitTempVar( ILTempVar* node ) override;
 	virtual void VisitLoad( ILLoad* node ) override;
 	virtual void VisitStore( ILStore* node ) override;

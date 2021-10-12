@@ -15,6 +15,7 @@ class ILLocalVar;
 class ILGlobalVar;
 class ILHeapVar;
 class ILArrayElementVar;
+class ILFieldVar;
 class ILTempVar;
 class ILLoad;
 class ILStore;
@@ -39,6 +40,7 @@ public:
 	virtual void VisitGlobalVar( ILGlobalVar* node ) {}
 	virtual void VisitHeapVar( ILHeapVar* node ) {}
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) {}
+	virtual void VisitFieldVar( ILFieldVar* node ) {}
 	virtual void VisitTempVar( ILTempVar* node ) {}
 	virtual void VisitLoad( ILLoad* node ) {}
 	virtual void VisitStore( ILStore* node ) {}
@@ -340,6 +342,27 @@ public:
 private:
 	ILNode* base_;
 	ILNode* index_;
+};
+
+class ILFieldVar : public ILVar
+{
+public:
+	ILFieldVar( ILVar* base, size_t offset, SmxESField* field )
+		:
+		base_( base ),
+		offset_( offset ),
+		field_( field )
+	{}
+
+	ILVar* base() { return base_; }
+	size_t offset() { return offset_; }
+	SmxESField* field() { return field_; }
+
+	virtual void Accept( ILVisitor* visitor ) { visitor->VisitFieldVar( this ); }
+private:
+	ILVar* base_;
+	size_t offset_;
+	SmxESField* field_;
 };
 
 class ILTempVar : public ILVar

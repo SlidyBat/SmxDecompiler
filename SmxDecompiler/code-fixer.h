@@ -13,6 +13,7 @@ private:
 	void CleanStores( ILBlock& bb ) const;
 	void CleanIncAndDec( ILBlock& bb ) const;
 	void RemoveTmpLocalVars( ILBlock& bb ) const;
+	void FixArrayAndESDecl( ILBlock& bb ) const;
 	void FixShortCircuitConditions( ILControlFlowGraph& cfg, ILBlock& bb ) const;
 
 	void VisitAllNodes( ILControlFlowGraph& cfg, class ILVisitor& visitor ) const;

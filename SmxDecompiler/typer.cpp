@@ -256,7 +256,13 @@ public:
 		Visit( node->index() );
 		PopType();
 	}
-	virtual void VisitTempVar( ILTempVar* node )
+	virtual void VisitFieldVar( ILFieldVar* node ) override
+	{
+		if( !node->type() )
+			node->SetType( type() );
+
+		Visit( node->base() );
+	}
 	virtual void VisitTempVar( ILTempVar* node ) override
 	{
 		if( !node->type() )
@@ -321,12 +327,49 @@ private:
 	std::vector<const SmxVariableType*> type_stack_;
 };
 
+class StructFinder : public RecursiveILVisitor
+{
+public:
+	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
+	{
+		auto* var = dynamic_cast<ILVar*>( node->base() );
+		if( !var )
+			return;
+
+		if( !var->type() || var->type()->tag != SmxVariableType::ENUM_STRUCT )
+			return;
+
+		auto* offset = dynamic_cast<ILConst*>( node->index() );
+		if( !offset )
+		{
+			assert( !"Accessing enum struct with non-constant offset?" );
+			return;
+		}
+
+		SmxEnumStruct* type = var->type()->enum_struct;
+		SmxESField* field = type->FindFieldAtOffset( offset->value() / 4 );
+		if( !field )
+		{
+			assert( !"Accessing enum struct at invalid offset" );
+			return;
+		}
+
+		auto* new_node = new ILFieldVar( var, (size_t)offset->value(), field );
+		new_node->SetType( &field->type );
+
+		node->ReplaceUsesWith( new_node );
+	}
+};
+
 void Typer::PopulateTypes( ILControlFlowGraph& cfg )
 {
 	cell_t pc = cfg.Entry().pc();
 	const SmxFunction* func = smx_->FindFunctionAt( pc );
 
 	FillSmxVars( cfg, func );
+
+	StructFinder struct_finder;
+	VisitAllNodes( cfg, struct_finder );
 }
 
 void Typer::FillSmxVars( ILControlFlowGraph& cfg, const SmxFunction* func )
@@ -342,6 +385,9 @@ void Typer::PropagateTypes( ILControlFlowGraph& cfg )
 
 	TypePropagator propagator( func );
 	VisitAllNodes( cfg, propagator );
+
+	StructFinder struct_finder;
+	VisitAllNodes( cfg, struct_finder );
 }
 
 void Typer::VisitAllNodes( ILControlFlowGraph& cfg, ILVisitor& visitor )

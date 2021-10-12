@@ -24,8 +24,8 @@ public:
 	}
 };
 
-// When arrays are loaded from / stored into at index 0, there is no indexing operation.
-// This class fixes up those cases to add in the index into first element. It also fixes
+// When arrays/enum-structs are loaded from / stored into at offset 0, there is no offset operation.
+// This class fixes up those cases to add in the offset into first element. It also fixes
 // up cases where addition is used to index into an array.
 // 
 // Before:
@@ -48,11 +48,23 @@ public:
 		if( !type )
 			return;
 
-		// Not an array or already an index operation, nothing to fix
-		if( type->dimcount == 0 || dynamic_cast<ILArrayElementVar*>(node->var()) )
+		// Not an array/enum-struct or already correct operation, nothing to fix
+		if( !IsArrayOrEnumStructType( type ) || IsArrayOrEnumStructVar( node->var() ) )
 			return;
 
-		ILArrayElementVar* new_var = new ILArrayElementVar( node->var(), new ILConst( 0 ) );
+		ILVar* new_var = nullptr;
+		if( type->dimcount > 0 )
+		{
+			// Array case
+			new_var = new ILArrayElementVar( node->var(), new ILConst( 0 ) );
+		}
+		else
+		{
+			// Enum struct case
+			SmxEnumStruct* enum_struct = type->enum_struct;
+			new_var = new ILFieldVar( node->var(), 0, enum_struct->FindFieldAtOffset( 0 ) );
+		}
+
 		node->ReplaceParam( node->var(), new_var );
 	}
 	virtual void VisitStore( ILStore* node ) override
@@ -63,15 +75,29 @@ public:
 		if( !type )
 			return;
 
-		// Not an array or already an index operation, nothing to fix
-		if( type->dimcount == 0 || dynamic_cast<ILArrayElementVar*>(node->var()) )
+		// Not an array/enum-struct or already correct operation, nothing to fix
+		if( !IsArrayOrEnumStructType( type ) || IsArrayOrEnumStructVar( node->var() ) )
 			return;
 
-		ILArrayElementVar* new_var = new ILArrayElementVar( node->var(), new ILConst( 0 ) );
+		ILVar* new_var = nullptr;
+		if( type->dimcount > 0 )
+		{
+			// Array case
+			new_var = new ILArrayElementVar( node->var(), new ILConst( 0 ) );
+		}
+		else
+		{
+			// Enum struct case
+			SmxEnumStruct* enum_struct = type->enum_struct;
+			new_var = new ILFieldVar( node->var(), 0, enum_struct->FindFieldAtOffset( 0 ) );
+		}
+
 		node->ReplaceParam( node->var(), new_var );
 	}
 	virtual void VisitBinary( ILBinary* node ) override
 	{
+		RecursiveILVisitor::VisitBinary( node );
+
 		if( node->op() == ILBinary::ADD )
 		{
 			ILVar* base = nullptr;
@@ -98,6 +124,15 @@ public:
 
 			node->ReplaceUsesWith( new ILArrayElementVar( base, index ) );
 		}
+	}
+private:
+	bool IsArrayOrEnumStructType( const SmxVariableType* type )
+	{
+		return ( type->dimcount > 0 ) || ( type->tag == SmxVariableType::ENUM_STRUCT );
+	}
+	bool IsArrayOrEnumStructVar( ILVar* var )
+	{
+		return dynamic_cast<ILArrayElementVar*>( var ) || dynamic_cast<ILFieldVar*>( var );
 	}
 };
 
@@ -202,6 +237,8 @@ class UseBoolOps : public RecursiveILVisitor
 public:
 	void VisitBinary( ILBinary* node )
 	{
+		RecursiveILVisitor::VisitBinary( node );
+
 		if( node->op() != ILBinary::EQ && node->op() != ILBinary::NEQ )
 			return;
 
@@ -258,6 +295,11 @@ void CodeFixer::ApplyFixes( ILControlFlowGraph& cfg ) const
 		FixShortCircuitConditions( cfg, cfg.block( i ) );
 	}
 
+	for( int i = (int)cfg.num_blocks() - 1; i >= 0; i-- )
+	{
+		FixArrayAndESDecl( cfg.block( i ) );
+	}
+	
 	cfg.ComputeDominance();
 }
 
@@ -359,6 +401,70 @@ void CodeFixer::RemoveTmpLocalVars( ILBlock& bb ) const
 
 			local_var->ReplaceUsesWith( local_var->value() );
 			bb.Remove( i );
+		}
+		else if( auto* tmp_var = dynamic_cast<ILTempVar*>(bb.node( i )) )
+		{
+			if( tmp_var->smx_var() )
+				continue;
+
+			if( !tmp_var->value() || tmp_var->num_uses() > 1 )
+				continue;
+
+			tmp_var->ReplaceUsesWith( tmp_var->value() );
+			bb.Remove( i );
+		}
+	}
+}
+
+void CodeFixer::FixArrayAndESDecl( ILBlock& bb ) const
+{
+	// Often times the lifter will give us a local var with an attached value instead of a store.
+	// Most of the time this is good since it combines the declaration/initialization, but for
+	// enum structs or arrays this is undesirable. We want it to be a separate store on the actual
+	// element being accessed.
+	//
+	// Before:
+	//  ```
+	//  MyEnumStruct x = 5;
+	// 	int y[10] = 10;
+	// 	```
+	// After:
+	// 	```
+	//  MyEnumStruct x;
+	// 	x.field_0 = 5;
+	// 	int y[10];
+	// 	y[0] = 10;
+	// 	```
+	//
+	for( size_t i = 0; i < bb.num_nodes(); i++ )
+	{
+		if( auto* local_var = dynamic_cast<ILLocalVar*>( bb.node( i ) ) )
+		{
+			if( !local_var->value() )
+				continue;
+
+			if( !local_var->type() )
+				continue;
+
+			if( !( local_var->type()->dimcount > 0 || local_var->type()->tag == SmxVariableType::ENUM_STRUCT ) )
+				continue;
+
+			ILVar* new_var = nullptr;
+			if( local_var->type()->dimcount > 0 )
+			{
+				// Array case
+				new_var = new ILArrayElementVar( local_var, new ILConst( 0 ) );
+			}
+			else
+			{
+				// Enum struct case
+				SmxEnumStruct* enum_struct = local_var->type()->enum_struct;
+				new_var = new ILFieldVar( local_var, 0, enum_struct->FindFieldAtOffset( 0 ) );
+			}
+
+			ILNode* value = local_var->value();
+			local_var->ReplaceParam( value, nullptr );
+			bb.Insert( i + 1, new ILStore( new_var, value ) );
 		}
 	}
 }

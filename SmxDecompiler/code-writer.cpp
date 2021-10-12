@@ -291,7 +291,12 @@ void CodeWriter::VisitHeapVar( ILHeapVar* node )
 
 void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )
 {
-	code_ << Build( node->base() ) << "[" << Build( node->index() ) << "]";
+	code_ << Build( node->base() ) << '[' << Build( node->index() ) << ']';
+}
+
+void CodeWriter::VisitFieldVar( ILFieldVar* node )
+{
+	code_ << Build( node->base() ) << '.' << node->field()->name;
 }
 
 void CodeWriter::VisitTempVar( ILTempVar* node )
@@ -543,7 +548,7 @@ std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* typ
 		case SmxVariableType::VOID:
 		case SmxVariableType::INT:
 		case SmxVariableType::ANY:
-			assert( type->dimcount == 0 );
+			//assert( type->dimcount == 0 );
 			return std::to_string( *val );
 
 		case SmxVariableType::BOOL:
@@ -594,6 +599,11 @@ std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* typ
 			if( !func )
 				return "<error>";
 			return func->name;
+		}
+
+		case SmxVariableType::ENUM_STRUCT:
+		{
+			return std::to_string( *val ) + " /* Unhandled field access */";
 		}
 
 		default:

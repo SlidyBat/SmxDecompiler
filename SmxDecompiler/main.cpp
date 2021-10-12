@@ -40,15 +40,18 @@ int main()
 		typer.PopulateTypes( *ilcfg );
 
 		CodeFixer fixer( smx );
-		fixer.ApplyFixes( *ilcfg );
 		typer.PopulateTypes( *ilcfg );
+		fixer.ApplyFixes( *ilcfg );
 		typer.PropagateTypes( *ilcfg );
-
-		Structurizer structurizer( ilcfg );
-		Statement* func_stmt = structurizer.Transform();
+		fixer.ApplyFixes( *ilcfg );
+		typer.PropagateTypes( *ilcfg );
+		fixer.ApplyFixes( *ilcfg );
 
 		//ILDisassembler ildisasm( smx );
 		//std::cout << ildisasm.DisassembleCFG( *ilcfg );
+
+		Structurizer structurizer( ilcfg );
+		Statement* func_stmt = structurizer.Transform();
 
 		CodeWriter writer( smx, func.name );
 		std::string code = writer.Build( func_stmt );

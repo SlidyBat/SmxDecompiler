@@ -186,6 +186,20 @@ void ILDisassembler::VisitArrayElementVar( ILArrayElementVar* node )
 	disasm_ << Visit( node->base() ) << "[" << Visit( node->index() ) << "]";
 }
 
+void ILDisassembler::VisitFieldVar( ILFieldVar* node )
+{
+	std::string field;
+	if( node->field() )
+	{
+		field = node->field()->name;
+	}
+	else
+	{
+		field = "field_" + std::to_string( node->offset() );
+	}
+	disasm_ << Visit( node->base() ) << '.' << field;
+}
+
 void ILDisassembler::VisitTempVar( ILTempVar* node )
 {
 	disasm_ << "tmp_" << node->index();
