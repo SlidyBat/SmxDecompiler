@@ -24,6 +24,7 @@ int main( int argc, const char* argv[] )
 		std::cout << "Usage: "
 			<< argv[0]
 			<< " [--function/-f <function>] [--no-globals/-g] [--assembly/-a] [--il/-i] <filename>\n";
+		return 1;
 	}
 	SmxFile smx( args.GetArg( 0 ).c_str() );
 	
