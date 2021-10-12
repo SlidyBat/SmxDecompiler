@@ -117,5 +117,6 @@
     <ClInclude Include="statement.h" />
     <ClInclude Include="typer.h" />
     <ClInclude Include="code-fixer.h" />
+    <ClInclude Include="optparse.h" />
   </ItemGroup>
 </Project>
