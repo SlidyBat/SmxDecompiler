@@ -294,13 +294,12 @@ void CodeFixer::ApplyFixes( ILControlFlowGraph& cfg ) const
 	{
 		FixShortCircuitConditions( cfg, cfg.block( i ) );
 	}
+	cfg.ComputeDominance();
 
 	for( int i = (int)cfg.num_blocks() - 1; i >= 0; i-- )
 	{
 		FixArrayAndESDecl( cfg.block( i ) );
 	}
-	
-	cfg.ComputeDominance();
 }
 
 void CodeFixer::VisitAllNodes( ILControlFlowGraph& cfg, ILVisitor& visitor ) const
@@ -558,9 +557,7 @@ void CodeFixer::FixShortCircuitConditions( ILControlFlowGraph& cfg, ILBlock& bb 
 	cfg.RemoveMultiple( remove, 3 );
 
 	// Remove unnecessary references to tmp
-	bb.Remove( tmp );
-	bb.Remove( then_store );
-	bb.Remove( else_store );
+	real_cond_block->Remove( tmp );
 	for( int i = (int)tmp->num_uses() - 1; i >= 0; i-- )
 	{
 		if( auto* store = dynamic_cast<ILStore*>( tmp->use( i ) ) )
