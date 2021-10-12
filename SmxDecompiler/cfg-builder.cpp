@@ -86,7 +86,20 @@ ControlFlowGraph CfgBuilder::Build( const cell_t* entry )
 
 const cell_t* CfgBuilder::NextInstruction( const cell_t* instr ) const
 {
-	return instr + SmxInstrInfo::Get( instr[0] ).num_params + 1;
+	int num_params = SmxInstrInfo::Get( instr[0] ).num_params;
+	if( num_params < 0 )
+	{
+		// This instruction shouldn't be generated
+		assert( !"Ungen instruction encountered" );
+		return instr + 1;
+	}
+	if( instr[0] == SMX_OP_CASETBL )
+	{
+		// Special case, casetbl is followed by bunch of data we need to skip over
+		cell_t ncases = instr[1];
+		num_params += 2 * ncases;
+	}
+	return instr + num_params + 1;
 }
 
 void CfgBuilder::MarkLeaders( const cell_t* entry )
