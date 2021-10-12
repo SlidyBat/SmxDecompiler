@@ -291,7 +291,26 @@ void CodeWriter::VisitHeapVar( ILHeapVar* node )
 
 void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )
 {
-	code_ << Build( node->base() ) << '[' << Build( node->index() ) << ']';
+	std::string index;
+	if( auto* constant = dynamic_cast<ILConst*>(node->index()) )
+	{
+		// Divide constant offset by size of type
+		cell_t size = 4; // Assume cell width by default
+		if( auto* type = node->type() )
+		{
+			// Pretty much everything is a cell except char array
+			// TODO: Enum struct?
+			if( type->tag == SmxVariableType::CHAR && type->dimcount > 0 )
+				size = 1;
+		}
+
+		index = std::to_string( constant->value() / size );
+	}
+	else
+	{
+		index = Build( node->index() );
+	}
+	code_ << Build( node->base() ) << '[' << index << ']';
 }
 
 void CodeWriter::VisitFieldVar( ILFieldVar* node )
