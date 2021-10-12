@@ -67,6 +67,7 @@
     <ClCompile Include="code-writer.cpp" />
     <ClCompile Include="typer.cpp" />
     <ClCompile Include="code-fixer.cpp" />
+    <ClCompile Include="il.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="third_party\zlib\crc32.h">

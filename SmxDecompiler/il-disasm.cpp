@@ -104,8 +104,8 @@ void ILDisassembler::VisitBinary( ILBinary* node )
 		case ILBinary::SHL:      disasm_ << Visit( node->left() ) << " << " << Visit( node->right() ); break;
 		case ILBinary::SHR:      disasm_ << Visit( node->left() ) << " >> " << Visit( node->right() ); break;
 		case ILBinary::SSHR:     disasm_ << Visit( node->left() ) << " >> " << Visit( node->right() ); break;
-		case ILBinary::AND:      disasm_ << Visit( node->left() ) << " & " << Visit( node->right() ); break;
-		case ILBinary::OR:       disasm_ << Visit( node->left() ) << " | " << Visit( node->right() ); break;
+		case ILBinary::BITAND:      disasm_ << Visit( node->left() ) << " & " << Visit( node->right() ); break;
+		case ILBinary::BITOR:       disasm_ << Visit( node->left() ) << " | " << Visit( node->right() ); break;
 		case ILBinary::XOR:      disasm_ << Visit( node->left() ) << " ^ " << Visit( node->right() ); break;
 
 		case ILBinary::EQ:       disasm_ << Visit( node->left() ) << " == " << Visit( node->right() ); break;
@@ -114,6 +114,8 @@ void ILDisassembler::VisitBinary( ILBinary* node )
 		case ILBinary::SGEQ:     disasm_ << Visit( node->left() ) << " >= " << Visit( node->right() ); break;
 		case ILBinary::SLESS:    disasm_ << Visit( node->left() ) << " < " << Visit( node->right() ); break;
 		case ILBinary::SLEQ:     disasm_ << Visit( node->left() ) << " <= " << Visit( node->right() ); break;
+		case ILBinary::AND:      disasm_ << Visit( node->left() ) << " && " << Visit( node->right() ); break;
+		case ILBinary::OR:       disasm_ << Visit( node->left() ) << " || " << Visit( node->right() ); break;
 
 		case ILBinary::FLOATADD: disasm_ << Visit( node->left() ) << " f+ " << Visit( node->right() ); break;
 		case ILBinary::FLOATSUB: disasm_ << Visit( node->left() ) << " f- " << Visit( node->right() ); break;

@@ -60,10 +60,19 @@ public:
 	void AddUse( ILNode* user ) { uses_.push_back( user ); }
 	void ReplaceUsesWith( ILNode* replacement )
 	{
-		for( ILNode* use : uses_ ) use->ReplaceParam( this, replacement );
+		for( ILNode* use : uses_ )
+			use->ReplaceParam( this, replacement );
+		uses_.clear();
 	}
 	size_t num_uses() const { return uses_.size(); }
 	ILNode* use( size_t index ) { return uses_[index]; }
+	void RemoveUse( size_t index ) { uses_.erase( uses_.begin() + index ); }
+	void RemoveUse( ILNode* user )
+	{
+		auto it = std::find( uses_.begin(), uses_.end(), user );
+		if( it != uses_.end() )
+			uses_.erase( it );
+	}
 	
 	const SmxVariableType* type() const { return type_; }
 	void SetType( const SmxVariableType* type ) { type_ = type; }
@@ -160,8 +169,8 @@ public:
 		SHL,
 		SHR,
 		SSHR,
-		AND,
-		OR,
+		BITAND,
+		BITOR,
 		XOR,
 
 		EQ,
@@ -170,6 +179,8 @@ public:
 		SGEQ,
 		SLESS,
 		SLEQ,
+		AND,
+		OR,
 
 		FLOATADD,
 		FLOATSUB,
@@ -248,7 +259,10 @@ public:
 	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
 	{
 		assert( value_ == target );
-		replacement->AddUse( this );
+		if( replacement )
+			replacement->AddUse( this );
+		if( value_ )
+			value_->RemoveUse( this );
 		value_ = replacement;
 	}
 
@@ -312,10 +326,12 @@ public:
 		replacement->AddUse( this );
 		if( base_ == target )
 		{
+			base_->RemoveUse( this );
 			base_ = replacement;
 		}
 		else
 		{
+			index_->RemoveUse( this );
 			index_ = replacement;
 		}
 	}
@@ -354,6 +370,7 @@ public:
 		width_( width )
 	{
 		assert( width == 1 || width == 2 || width == 4 );
+		assert( var_ );
 		var->AddUse( this );
 	}
 
@@ -364,7 +381,9 @@ public:
 	{
 		assert( var_ == target && dynamic_cast<ILVar*>( target ) );
 		replacement->AddUse( this );
+		var_->RemoveUse( this );
 		var_ = dynamic_cast<ILVar*>( replacement );
+		assert( var_ );
 	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitLoad( this ); }
@@ -397,11 +416,13 @@ public:
 		replacement->AddUse( this );
 		if( var_ == target )
 		{
+			var_->RemoveUse( this );
 			var_ = dynamic_cast<ILVar*>(replacement);
 			assert( var_ );
 		}
 		else
 		{
+			val_->RemoveUse( this );
 			val_ = replacement;
 		}
 	}
@@ -422,6 +443,12 @@ public:
 	{}
 
 	ILBlock* target() { return target_; }
+
+	void ReplaceTarget( ILBlock* from, ILBlock* to )
+	{
+		if( target_ == from )
+			target_ = to;
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitJump( this ); }
 private:
@@ -444,50 +471,20 @@ public:
 	ILBlock* true_branch() { return true_branch_; }
 	ILBlock* false_branch() { return false_branch_; }
 
-	void Invert()
+	void Invert();
+
+	void ReplaceTarget( ILBlock* from, ILBlock* to )
 	{
-		std::swap( true_branch_, false_branch_ );
-		if( auto* binary = dynamic_cast<ILBinary*>(condition_) )
-		{
-			switch( binary->op() )
-			{
-				case ILBinary::EQ:
-					condition_ = new ILBinary( binary->left(), ILBinary::NEQ, binary->right() );
-					return;
-				case ILBinary::NEQ:
-					condition_ = new ILBinary( binary->left(), ILBinary::EQ, binary->right() );
-					return;
-				case ILBinary::SGRTR:
-					condition_ = new ILBinary( binary->left(), ILBinary::SLEQ, binary->right() );
-					return;
-				case ILBinary::SGEQ:
-					condition_ = new ILBinary( binary->left(), ILBinary::SLESS, binary->right() );
-					return;
-				case ILBinary::SLESS:
-					condition_ = new ILBinary( binary->left(), ILBinary::SGEQ, binary->right() );
-					return;
-				case ILBinary::SLEQ:
-					condition_ = new ILBinary( binary->left(), ILBinary::SGRTR, binary->right() );
-					return;
-			}
-		}
-		else if( auto* unary = dynamic_cast<ILUnary*>(condition_) )
-		{
-			switch( unary->op() )
-			{
-				case ILUnary::NOT:
-					condition_ = unary->val();
-					return;
-			}
-		}
-
-		condition_ = new ILUnary( condition_, ILUnary::NOT );
+		if( true_branch_ == from )
+			true_branch_ = to;
+		else if( false_branch_ == from )
+			false_branch_ = to;
 	}
-
 	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
 	{
 		assert( condition_ == target );
 		replacement->AddUse( this );
+		condition_->RemoveUse( this );
 		condition_ = replacement;
 	}
 
@@ -512,12 +509,22 @@ public:
 		value_( value ),
 		default_case_( default_case ),
 		cases_( std::move( cases ) )
-	{}
+	{
+		value->AddUse( this );
+	}
 
 	ILNode* value() { return value_; }
 	ILBlock* default_case() { return default_case_; }
 	CaseTableEntry& case_entry( size_t index ) { return cases_[index]; }
 	size_t num_cases() const { return cases_.size(); }
+
+	virtual void ReplaceParam( ILNode* target, ILNode* replacement ) override
+	{
+		assert( value_ == target );
+		replacement->AddUse( this );
+		value_->RemoveUse( this );
+		value_ = replacement;
+	}
 
 	virtual void Accept( ILVisitor* visitor ) { visitor->VisitSwitch( this ); }
 private:
@@ -541,6 +548,7 @@ public:
 		{
 			if( args_[i] == target )
 			{
+				args_[i]->RemoveUse( this );
 				args_[i] = replacement;
 				break;
 			}
@@ -586,6 +594,8 @@ public:
 		assert( value_ == target );
 		if( replacement )
 			replacement->AddUse( this );
+		if( value_ )
+			value_->RemoveUse( this );
 		value_ = replacement;
 	}
 

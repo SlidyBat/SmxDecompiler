@@ -44,6 +44,12 @@ ILControlFlowGraph* PcodeLifter::Lift( const ControlFlowGraph& cfg )
 		MovePhis( ilbb );
 	}
 
+	CompoundConditions();
+
+	// All the operations above may have moved around some edges and removed basic blocks
+	// Recompute the dominance for the graph again in case there are stale references there
+	ilcfg_->ComputeDominance();
+
 	return ilcfg_;
 }
 
@@ -158,8 +164,8 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 			{
 				cell_t size = params[0];
 				cell_t addr = heap_addr_;
-				heap_addr_ += size;
 				alt = new ILHeapVar( heap_addr_, size );
+				heap_addr_ += size;
 				ilbb.Add( alt );
 				break;
 			}
@@ -254,10 +260,10 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				break;
 
 			case SMX_OP_POP_PRI:
-				pri = Pop()->value();
+				pri = PopValue();
 				break;
 			case SMX_OP_POP_ALT:
-				alt = Pop()->value();
+				alt = PopValue();
 				break;
 
 			case SMX_OP_CONST_PRI:
@@ -532,13 +538,13 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				pri = new ILBinary( alt, ILBinary::SUB, pri );
 				break;
 			case SMX_OP_AND:
-				pri = new ILBinary( pri, ILBinary::AND, alt );
+				pri = new ILBinary( pri, ILBinary::BITAND, alt );
 				break;
 			case SMX_OP_OR:
-				pri = new ILBinary( pri, ILBinary::OR, alt );
+				pri = new ILBinary( pri, ILBinary::BITOR, alt );
 				break;
 			case SMX_OP_XOR:
-				pri = new ILBinary( pri, ILBinary::OR, alt );
+				pri = new ILBinary( pri, ILBinary::BITOR, alt );
 				break;
 			case SMX_OP_NOT:
 				pri = new ILUnary( pri, ILUnary::NOT );
@@ -679,12 +685,12 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 
 			case SMX_OP_CALL:
 			{
-				auto* nargs = dynamic_cast<ILConst*>( Pop()->value() );
+				auto* nargs = dynamic_cast<ILConst*>(PopValue());
 				assert( nargs );
 				auto* call = new ILCall( params[0] );
 				for( cell_t i = 0; i < nargs->value(); i++ )
 				{
-					call->AddArg( Pop()->value() );
+					call->AddArg( PopValue() );
 				}
 				ILTempVar* result = MakeTemp( call );
 				ilbb.Add( result );
@@ -704,7 +710,7 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				auto* ntv = new ILNative( native_index );
 				for( cell_t i = 0; i < nargs; i++ )
 				{
-					ntv->AddArg( Pop()->value() );
+					ntv->AddArg( PopValue() );
 				}
 				ILTempVar* result = MakeTemp( ntv );
 				ilbb.Add( result );
@@ -837,14 +843,14 @@ void PcodeLifter::MovePhis( ILBlock& ilbb )
 			{
 				// Add declaration at immed_dominator
 				tmp->SetValue( nullptr );
-				ilbb.immed_dominator()->Prepend( tmp );
+				ilbb.immed_dominator()->AddToEnd( tmp );
 
 				// Add stores on incoming edges
 				assert( phi->num_inputs() == ilbb.num_in_edges() );
 				for( size_t inp = 0; inp < phi->num_inputs(); inp++ )
 				{
 					ILBlock& in = ilbb.in_edge( inp );
-					in.Prepend( new ILStore( tmp, phi->input( inp ) ) );
+					in.AddToEnd( new ILStore( tmp, phi->input( inp ) ) );
 				}
 
 				// Remove from current block
@@ -852,6 +858,91 @@ void PcodeLifter::MovePhis( ILBlock& ilbb )
 			}
 		}
 	}
+}
+
+void PcodeLifter::CompoundConditions() const
+{
+	bool changed = true;
+	while( changed )
+	{
+		changed = false;
+
+		for( size_t i = 0; i < ilcfg_->num_blocks(); i++ )
+		{
+			ILBlock& bb = ilcfg_->block( i );
+			if( bb.num_out_edges() != 2 || dynamic_cast<ILSwitch*>(bb.Last()) )
+				continue;
+
+			ILBlock& then_branch = bb.out_edge( 0 );
+			ILBlock& else_branch = bb.out_edge( 1 );
+
+			// X || Y
+			if( else_branch.num_out_edges() == 2 &&
+				else_branch.num_nodes() == 1 &&
+				else_branch.num_in_edges() == 1 &&
+				&else_branch.out_edge( 0 ) == &then_branch )
+			{
+				CompoundXandY( bb, else_branch, then_branch, else_branch.out_edge( 1 ) );
+				changed = true;
+			}
+
+			// X && Y
+			if( then_branch.num_out_edges() == 2 &&
+				then_branch.num_nodes() == 1 &&
+				then_branch.num_in_edges() == 1 &&
+				&then_branch.out_edge( 1 ) == &else_branch )
+			{
+				CompoundXorY( bb, then_branch, then_branch.out_edge( 0 ), else_branch );
+				changed = true;
+			}
+
+			// 2 other cases also exist
+			// !X || Y
+			// !X && Y
+			// but these shouldn't be emitted by compiler
+		}
+	}
+}
+
+void PcodeLifter::CompoundXandY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const
+{
+	auto* x_cond = dynamic_cast<ILJumpCond*>(x.Last());
+	auto* y_cond = dynamic_cast<ILJumpCond*>(y.Last());
+	assert( x_cond && y_cond );
+
+	x_cond->Invert();
+	y_cond->Invert();
+
+	auto* new_cond = new ILJumpCond(
+		new ILBinary( x_cond->condition(), ILBinary::AND, y_cond->condition() ),
+		&then_branch,
+		&else_branch );
+
+	x.Replace( x.num_nodes() - 1, new_cond );
+
+	x.ReplaceOutEdge( y, else_branch );
+	else_branch.ReplaceInEdge( y, x );
+	then_branch.RemoveInEdge( y );
+	ilcfg_->Remove( y );
+}
+
+void PcodeLifter::CompoundXorY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const
+{
+	auto* x_cond = dynamic_cast<ILJumpCond*>(x.Last());
+	auto* y_cond = dynamic_cast<ILJumpCond*>(y.Last());
+	assert( x_cond && y_cond );
+
+	auto* new_cond = new ILJumpCond(
+		new ILBinary( x_cond->condition(), ILBinary::AND, y_cond->condition() ),
+		&then_branch,
+		&else_branch );
+
+	x.Replace( x.num_nodes() - 1, new_cond );
+
+	x.ReplaceOutEdge( y, then_branch );
+	then_branch.ReplaceInEdge( y, x );
+	else_branch.RemoveInEdge( y );
+	ilcfg_->Remove( y );
 }
 
 ILLocalVar* PcodeLifter::Push( ILNode* value )
@@ -872,6 +963,17 @@ ILLocalVar* PcodeLifter::Pop()
 	ILLocalVar* top = expr_stack_->stack.back();
 	expr_stack_->stack.pop_back();
 	return top;
+}
+
+ILNode* PcodeLifter::PopValue()
+{
+	ILLocalVar* var = Pop();
+	if( !var )
+		return nullptr;
+
+	ILNode* val = var->value();
+	var->ReplaceParam( val, nullptr );
+	return val;
 }
 
 ILLocalVar* PcodeLifter::GetFrameVar( int offset )

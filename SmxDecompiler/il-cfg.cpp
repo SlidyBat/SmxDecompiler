@@ -7,32 +7,80 @@ void ILControlFlowGraph::AddBlock( size_t id, cell_t pc )
 {
 	blocks_.emplace_back( *this, pc );
 	blocks_.back().id_ = id;
+
+	stable_blocks_.clear();
+	for( ILBlock& bb : blocks_ )
+		stable_blocks_.emplace_back( &bb );
+
+	Verify();
 }
 
 ILBlock* ILControlFlowGraph::FindBlockAt( cell_t pc )
 {
-	for( ILBlock& bb : blocks_ )
+	for( ILBlock* bb : stable_blocks_ )
 	{
-		if( bb.pc() == pc )
+		if( bb->pc() == pc )
 		{
-			return &bb;
+			return bb;
 		}
 	}
 	return nullptr;
 }
 
+void ILControlFlowGraph::Remove( ILBlock& bb )
+{
+	auto it = std::find( stable_blocks_.begin(), stable_blocks_.end(), &bb );
+	if( it != stable_blocks_.end() )
+	{
+		stable_blocks_.erase( it );
+		for( size_t i = 0; i < stable_blocks_.size(); i++ )
+		{
+			stable_blocks_[i]->id_ = i;
+		}
+	}
+
+	Verify();
+}
+
+void ILControlFlowGraph::RemoveMultiple( ILBlock** blocks, size_t num_blocks )
+{
+	Verify();
+
+	for( size_t block = 0; block < num_blocks; block++ )
+	{
+		auto it = std::find( stable_blocks_.begin(), stable_blocks_.end(), blocks[block] );
+		if( it != stable_blocks_.end() )
+		{
+			stable_blocks_.erase( it );
+		}
+	}
+
+	for( size_t i = 0; i < stable_blocks_.size(); i++ )
+	{
+		stable_blocks_[i]->id_ = i;
+	}
+
+	Verify();
+}
+
 void ILControlFlowGraph::ComputeDominance()
 {
+	for( ILBlock* b : stable_blocks_ )
+	{
+		b->SetImmediateDominator( nullptr );
+		b->SetImmediatePostDominator( nullptr );
+	}
+
 	// Compute immediate dominators
-	blocks_[0].SetImmediateDominator( &blocks_[0] );
+	block( 0 ).SetImmediateDominator( &block( 0 ) );
 
 	bool changed = true;
 	while( changed )
 	{
 		changed = false;
-		for( size_t i = 1; i < blocks_.size(); i++ )
+		for( size_t i = 1; i < num_blocks(); i++ )
 		{
-			ILBlock& b = blocks_[i];
+			ILBlock& b = block( i );
 			assert( b.num_in_edges() );
 
 			ILBlock* new_idom = &b.in_edge( 0 );
@@ -54,8 +102,8 @@ void ILControlFlowGraph::ComputeDominance()
 	}
 
 	// Compute immediate post-dominators
-	int last = (int)blocks_.size() - 1;
-	blocks_[last].SetImmediatePostDominator( &blocks_[last] );
+	int last = (int)num_blocks() - 1;
+	block( last ).SetImmediatePostDominator( &block( last ) );
 
 	changed = true;
 	while( changed )
@@ -63,7 +111,7 @@ void ILControlFlowGraph::ComputeDominance()
 		changed = false;
 		for( int i = last - 1; i >= 0; i-- )
 		{
-			ILBlock& b = blocks_[i];
+			ILBlock& b = block( i );
 			if( !b.num_out_edges() )
 			{
 				b.SetImmediatePostDominator( &b );
@@ -71,7 +119,7 @@ void ILControlFlowGraph::ComputeDominance()
 			}
 
 			ILBlock* new_idom = &b.out_edge( b.num_out_edges() - 1 );
-			for( int out = b.num_out_edges() - 2; out >= 0; out-- )
+			for( int out = (int)b.num_out_edges() - 2; out >= 0; out-- )
 			{
 				ILBlock& p = b.out_edge( out );
 				if( p.immed_post_dominator() != nullptr )
@@ -92,6 +140,8 @@ void ILControlFlowGraph::ComputeDominance()
 			}
 		}
 	}
+
+	Verify();
 }
 
 ILControlFlowGraph* ILControlFlowGraph::Next()
@@ -100,7 +150,7 @@ ILControlFlowGraph* ILControlFlowGraph::Next()
 
 	NewEpoch();
 
-	intervals.push_back( IntervalForHeader( blocks_[0] ) );
+	intervals.push_back( IntervalForHeader( block( 0 ) ) );
 
 	bool changed = true;
 	while( changed )
@@ -255,12 +305,101 @@ size_t ILControlFlowGraph::FindOuterTarget( const std::vector<std::vector<ILBloc
 	return (size_t)-1;
 }
 
+void ILControlFlowGraph::Verify()
+{
+#ifdef _DEBUG
+	// Make sure there are no dangling edges from removed blocks
+	for( ILBlock* b : stable_blocks_ )
+	{
+		for( size_t i = 0; i < b->num_in_edges(); i++ )
+		{
+			assert( std::find( stable_blocks_.begin(), stable_blocks_.end(), &b->in_edge( i ) ) != stable_blocks_.end() );
+		}
+		for( size_t i = 0; i < b->num_out_edges(); i++ )
+		{
+			assert( std::find( stable_blocks_.begin(), stable_blocks_.end(), &b->out_edge( i ) ) != stable_blocks_.end() );
+		}
+	}
+#endif
+}
+
 void ILControlFlowGraph::NewEpoch()
 {
 	epoch_++;
 }
 
-void ILBlock::Prepend( ILNode* node )
+void ILBlock::Remove( ILNode* node )
+{
+	auto it = std::find( nodes_.begin(), nodes_.end(), node );
+	if( it != nodes_.end() )
+	{
+		nodes_.erase( it );
+	}
+}
+
+void ILBlock::ReplaceOutEdge( ILBlock& from_block, ILBlock& to_block )
+{
+	for( size_t i = 0; i < out_edges_.size(); i++ )
+	{
+		if( out_edges_[i] == &from_block )
+		{
+			out_edges_[i] = &to_block;
+			break;
+		}
+	}
+
+	if( auto* jmp = dynamic_cast<ILJump*>( Last() ) )
+	{
+		jmp->ReplaceTarget( &from_block, &to_block );
+	}
+	else if( auto* jmp_cond = dynamic_cast<ILJumpCond*>( Last() ) )
+	{
+		jmp_cond->ReplaceTarget( &from_block, &to_block );
+	}
+}
+
+void ILBlock::ReplaceInEdge( ILBlock& from_block, ILBlock& to_block )
+{
+	for( size_t i = 0; i < in_edges_.size(); i++ )
+	{
+		if( in_edges_[i] == &from_block )
+		{
+			in_edges_[i] = &to_block;
+			return;
+		}
+	}
+}
+
+void ILBlock::RemoveOutEdge( ILBlock& block )
+{
+	auto it = std::find( out_edges_.begin(), out_edges_.end(), &block );
+	if( it != out_edges_.end() )
+		out_edges_.erase( it );
+}
+
+void ILBlock::RemoveInEdge( ILBlock& block )
+{
+	auto it = std::find( in_edges_.begin(), in_edges_.end(), &block );
+	if( it != in_edges_.end() )
+		in_edges_.erase( it );
+}
+
+void ILBlock::AddOutEdge( ILBlock& block )
+{
+	out_edges_.push_back( &block );
+}
+
+void ILBlock::AddInEdge( ILBlock& block )
+{
+	in_edges_.push_back( &block );
+}
+
+void ILBlock::AddToStart( ILNode* node )
+{
+	nodes_.insert( nodes_.begin(), node );
+}
+
+void ILBlock::AddToEnd( ILNode* node )
 {
 	if( !nodes_.empty() &&
 		(dynamic_cast<ILJump*>(nodes_.back()) || dynamic_cast<ILJumpCond*>(nodes_.back()) || dynamic_cast<ILReturn*>(nodes_.back())) )
@@ -293,6 +432,21 @@ bool ILBlock::Dominates( ILBlock* block ) const
 		}
 	}
 	return false;
+}
+
+size_t ILBlock::NumDominators() const
+{
+	size_t num = 0;
+	for( ILBlock* p = immed_dominator(); ; p = p->immed_dominator() )
+	{
+		if( p == p->immed_dominator() )
+		{
+			return num;
+		}
+		num++;
+	}
+
+	return 0;
 }
 
 bool ILBlock::IsBackEdge( size_t out_edge ) const

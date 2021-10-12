@@ -246,12 +246,19 @@ void CodeFixer::ApplyFixes( ILControlFlowGraph& cfg ) const
 	UseBoolOps use_bool_ops;
 	VisitAllNodes( cfg, use_bool_ops );
 
-	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	for( int i = (int)cfg.num_blocks() - 1; i >= 0; i-- )
 	{
 		CleanStores( cfg.block( i ) );
 		CleanIncAndDec( cfg.block( i ) );
 		RemoveTmpLocalVars( cfg.block( i ) );
 	}
+
+	for( int i = (int)cfg.num_blocks() - 1; i >= 0; i-- )
+	{
+		FixShortCircuitConditions( cfg, cfg.block( i ) );
+	}
+
+	cfg.ComputeDominance();
 }
 
 void CodeFixer::VisitAllNodes( ILControlFlowGraph& cfg, ILVisitor& visitor ) const
@@ -354,4 +361,113 @@ void CodeFixer::RemoveTmpLocalVars( ILBlock& bb ) const
 			bb.Remove( i );
 		}
 	}
+}
+
+void CodeFixer::FixShortCircuitConditions( ILControlFlowGraph& cfg, ILBlock& bb ) const
+{
+	// Short circuit conditions (&&/||) generate code that assigns to some tmp var, then
+	// checks the tmp var to actually run the user code. This pass removes the tmp var
+	// and uses the condition directly.
+	// 
+	// Before:
+	//  ```
+	//  if (a && b && c)
+	//  {
+	//    tmp = 1
+	//  }
+	//  else
+	//  {
+	//    tmp = 0
+	//  }
+	//  if (tmp)
+	//  {
+	//    // user code
+	//  }
+	//  ```
+	// After:
+	//  ```
+	//  if (a && b && c)
+	//  {
+	//    // user code
+	//  }
+	//  ```
+	//
+	auto* node = dynamic_cast<ILJumpCond*>(bb.Last());
+	if( !node )
+		return;
+
+	ILBlock* then_branch = node->true_branch();
+	ILBlock* else_branch = node->false_branch();
+	if( then_branch->num_nodes() != 1 ||
+		else_branch->num_nodes() != 2 ||
+		then_branch->num_in_edges() != 1 ||
+		else_branch->num_in_edges() != 1 )
+		return;
+
+	auto* jmp = dynamic_cast<ILJump*>(else_branch->Last());
+	if( !jmp )
+		return;
+
+	auto* then_store = dynamic_cast<ILStore*>(then_branch->node( 0 ));
+	auto* else_store = dynamic_cast<ILStore*>(else_branch->node( 0 ));
+	if( !then_store || !else_store || then_store->var() != else_store->var() )
+		return;
+
+	auto* tmp = then_store->var();
+
+	auto* then_const = dynamic_cast<ILConst*>(then_store->val());
+	auto* else_const = dynamic_cast<ILConst*>(else_store->val());
+	if( !then_const || !else_const )
+		return;
+
+	cell_t then_val = then_const->value();
+	cell_t else_val = else_const->value();
+	if( then_val != !else_val )
+		return;
+
+	if( then_val == 0 )
+	{
+		node->Invert();
+	}
+
+	// This is the "real" block that uses the tmp var result
+	auto* real_cond_block = jmp->target();
+
+	// Remove entire if-statement, just use bool result inline
+	real_cond_block->RemoveInEdge( bb );
+	real_cond_block->RemoveInEdge( *then_branch );
+	real_cond_block->RemoveInEdge( *else_branch );
+	for( size_t i = 0; i < bb.num_in_edges(); i++ )
+	{
+		bb.in_edge( i ).ReplaceOutEdge( bb, *real_cond_block );
+		real_cond_block->AddInEdge( bb.in_edge( i ) );
+	}
+
+	for( int i = (int)bb.num_nodes() - 2; i >= 0; i-- )
+	{
+		real_cond_block->AddToStart( bb.node( i ) );
+	}
+
+	ILBlock* remove[] = { &bb, then_branch, else_branch };
+	cfg.RemoveMultiple( remove, 3 );
+
+	// Remove unnecessary references to tmp
+	bb.Remove( tmp );
+	bb.Remove( then_store );
+	bb.Remove( else_store );
+	for( int i = (int)tmp->num_uses() - 1; i >= 0; i-- )
+	{
+		if( auto* store = dynamic_cast<ILStore*>( tmp->use( i ) ) )
+		{
+			tmp->RemoveUse( i );
+			store->ReplaceUsesWith( node->condition() );
+		}
+		else if( auto* load = dynamic_cast<ILLoad*>( tmp->use( i ) ) )
+		{
+			tmp->RemoveUse( i );
+			load->ReplaceUsesWith( node->condition() );
+		}
+	}
+
+	tmp->ReplaceUsesWith( node->condition() );
 }

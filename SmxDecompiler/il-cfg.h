@@ -15,9 +15,18 @@ public:
 	{}
 
 	void Add( ILNode* node ) { nodes_.push_back( node ); }
+	void Insert( size_t index, ILNode* node ) { nodes_.insert( nodes_.begin() + index, node ); }
+	void Remove( ILNode* node );
 	void Remove( size_t index ) { nodes_.erase( nodes_.begin() + index ); }
 	void Replace( size_t index, ILNode* value ) { nodes_[index] = value; }
-	void Prepend( ILNode* node );
+	void ReplaceOutEdge( ILBlock& from_block, ILBlock& to_block );
+	void ReplaceInEdge( ILBlock& from_block, ILBlock& to_block );
+	void RemoveOutEdge( ILBlock& block );
+	void RemoveInEdge( ILBlock& block );
+	void AddOutEdge( ILBlock& block );
+	void AddInEdge( ILBlock& block );
+	void AddToStart( ILNode* node );
+	void AddToEnd( ILNode* node );
 	void AddTarget( ILBlock& bb );
 	ILNode* Last() { return nodes_.empty() ? nullptr : nodes_.back(); }
 
@@ -36,6 +45,7 @@ public:
 	ILBlock* immed_post_dominator() const { return post_idom_; }
 
 	bool Dominates( ILBlock* block ) const;
+	size_t NumDominators() const;
 
 	bool IsBackEdge( size_t out_edge ) const;
 	bool IsLoopHeader() const;
@@ -62,10 +72,13 @@ public:
 	void AddBlock( size_t id, cell_t pc );
 	ILBlock* FindBlockAt( cell_t pc );
 	ILBlock& Entry() { return blocks_[0]; }
+	void Remove( ILBlock& bb );
+	void RemoveMultiple( ILBlock** blocks, size_t num_blocks );
 
-	size_t num_blocks() const { return blocks_.size(); }
-	const ILBlock& block( size_t index ) const { return blocks_[index]; }
-	ILBlock& block( size_t index ) { return blocks_[index]; }
+	size_t max_id() const { return blocks_.empty() ? 0 : (blocks_.size() - 1); }
+	size_t num_blocks() const { return stable_blocks_.size(); }
+	const ILBlock& block( size_t index ) const { return *stable_blocks_[index]; }
+	ILBlock& block( size_t index ) { return *stable_blocks_[index]; }
 
 	void SetNumArgs( int nargs ) { nargs_ = nargs; }
 	int nargs() const { return nargs_; }
@@ -74,6 +87,7 @@ public:
 	void NewEpoch();
 
 	void ComputeDominance();
+	void Verify();
 
 	ILControlFlowGraph* Next();
 private:
@@ -84,5 +98,6 @@ private:
 private:
 	int nargs_ = 0;
 	std::vector<ILBlock> blocks_;
+	std::vector<ILBlock*> stable_blocks_;
 	int epoch_ = 0;
 };

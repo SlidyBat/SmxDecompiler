@@ -207,8 +207,8 @@ void CodeWriter::VisitBinary( ILBinary* node )
 		case ILBinary::SHL:      code_ << Build( node->left() ) << " << " << Build( node->right() ); break;
 		case ILBinary::SHR:      code_ << Build( node->left() ) << " >> " << Build( node->right() ); break;
 		case ILBinary::SSHR:     code_ << Build( node->left() ) << " >> " << Build( node->right() ); break;
-		case ILBinary::AND:      code_ << Build( node->left() ) << " & " << Build( node->right() ); break;
-		case ILBinary::OR:       code_ << Build( node->left() ) << " | " << Build( node->right() ); break;
+		case ILBinary::BITAND:      code_ << Build( node->left() ) << " & " << Build( node->right() ); break;
+		case ILBinary::BITOR:       code_ << Build( node->left() ) << " | " << Build( node->right() ); break;
 		case ILBinary::XOR:      code_ << Build( node->left() ) << " ^ " << Build( node->right() ); break;
 
 		case ILBinary::EQ:       code_ << Build( node->left() ) << " == " << Build( node->right() ); break;
@@ -217,6 +217,8 @@ void CodeWriter::VisitBinary( ILBinary* node )
 		case ILBinary::SGEQ:     code_ << Build( node->left() ) << " >= " << Build( node->right() ); break;
 		case ILBinary::SLESS:    code_ << Build( node->left() ) << " < " << Build( node->right() ); break;
 		case ILBinary::SLEQ:     code_ << Build( node->left() ) << " <= " << Build( node->right() ); break;
+		case ILBinary::AND:      code_ << Build( node->left() ) << " && " << Build( node->right() ); break;
+		case ILBinary::OR:       code_ << Build( node->left() ) << " || " << Build( node->right() ); break;
 
 		case ILBinary::FLOATADD: code_ << Build( node->left() ) << " + " << Build( node->right() ); break;
 		case ILBinary::FLOATSUB: code_ << Build( node->left() ) << " - " << Build( node->right() ); break;

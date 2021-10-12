@@ -164,6 +164,7 @@
     <ClCompile Include="code-writer.cpp" />
     <ClCompile Include="il-cfg.cpp" />
     <ClCompile Include="il-disasm.cpp" />
+    <ClCompile Include="il.cpp" />
     <ClCompile Include="lifter.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="smx-disasm.cpp" />

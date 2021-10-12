@@ -17,9 +17,14 @@ private:
 	void CleanCalls( ILBlock& ilbb );
 	void PruneVarsInBlock( ILBlock& ilbb );
 	void MovePhis( ILBlock& ilbb );
+	void CompoundConditions() const;
+	void CompoundXorY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const;
+	void CompoundXandY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const;
+
 
 	ILLocalVar* Push( ILNode* value );
 	ILLocalVar* Pop();
+	ILNode* PopValue();
 	ILLocalVar* GetFrameVar( int offset );
 	ILNode* GetFrameVal( int offset );
 	void SetFrameVal( int offset, ILNode* val );

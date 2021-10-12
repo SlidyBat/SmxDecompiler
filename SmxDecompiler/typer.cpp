@@ -8,7 +8,7 @@ public:
 		func_( func )
 	{}
 
-	virtual void VisitLocalVar( ILLocalVar* node )
+	virtual void VisitLocalVar( ILLocalVar* node ) override
 	{
 		RecursiveILVisitor::VisitLocalVar( node );
 
@@ -28,7 +28,7 @@ public:
 		if( node->smx_var() )
 			node->SetType( &node->smx_var()->type );
 	}
-	virtual void VisitGlobalVar( ILGlobalVar* node )
+	virtual void VisitGlobalVar( ILGlobalVar* node ) override
 	{
 		// This has already been filled, can skip
 		if( node->smx_var() )
@@ -41,7 +41,7 @@ public:
 		node->SetSmxVar( var );
 		node->SetType( &var->type );
 	}
-	virtual void VisitCall( ILCall* node )
+	virtual void VisitCall( ILCall* node ) override
 	{
 		RecursiveILVisitor::VisitCall( node );
 
@@ -59,7 +59,7 @@ public:
 			arg->SetType( &func->signature.args[i].type );
 		}
 	}
-	virtual void VisitNative( ILNative* node )
+	virtual void VisitNative( ILNative* node ) override
 	{
 		RecursiveILVisitor::VisitNative( node );
 
@@ -103,12 +103,12 @@ public:
 		node->Accept( this );
 	}
 
-	virtual void VisitConst( ILConst* node )
+	virtual void VisitConst( ILConst* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
 	}
-	virtual void VisitUnary( ILUnary* node )
+	virtual void VisitUnary( ILUnary* node ) override
 	{
 		switch( node->op() )
 		{	
@@ -146,7 +146,7 @@ public:
 
 		PopType();
 	}
-	virtual void VisitBinary( ILBinary* node )
+	virtual void VisitBinary( ILBinary* node ) override
 	{
 		switch( node->op() )
 		{
@@ -158,11 +158,10 @@ public:
 			case ILBinary::SHL:
 			case ILBinary::SHR:
 			case ILBinary::SSHR:
-			case ILBinary::AND:
-			case ILBinary::OR:
+			case ILBinary::BITAND:
+			case ILBinary::BITOR:
 			case ILBinary::XOR:
-				node->SetType( bool_type_ );
-				PushType( type() );
+				node->SetType( int_type_ );
 				break;
 
 			case ILBinary::EQ:
@@ -171,8 +170,9 @@ public:
 			case ILBinary::SGEQ:
 			case ILBinary::SLESS:
 			case ILBinary::SLEQ:
+			case ILBinary::AND:
+			case ILBinary::OR:
 				node->SetType( bool_type_ );
-				PushType( type() );
 				break;
 
 			case ILBinary::FLOATADD:
@@ -180,7 +180,6 @@ public:
 			case ILBinary::FLOATMUL:
 			case ILBinary::FLOATDIV:
 				node->SetType( float_type_ );
-				PushType( float_type_ );
 				break;
 
 			case ILBinary::FLOATCMP:
@@ -191,20 +190,14 @@ public:
 			case ILBinary::FLOATEQ:
 			case ILBinary::FLOATNE:
 				node->SetType( bool_type_ );
-				PushType( float_type_ );
 				break;
 
 			default:
 				assert( 0 );
-				PushType( type() );
 				break;
 		}
 
-		const SmxVariableType* inner_type = type();
-		if( !inner_type )
-		{
-			inner_type = node->left()->type();
-		}
+		const SmxVariableType* inner_type = node->left()->type();
 		if( !inner_type )
 		{
 			inner_type = node->right()->type();
@@ -215,7 +208,7 @@ public:
 		Visit( node->right() );
 		PopType();
 	}
-	virtual void VisitLocalVar( ILLocalVar* node )
+	virtual void VisitLocalVar( ILLocalVar* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
@@ -227,17 +220,17 @@ public:
 			PopType();
 		}
 	}
-	virtual void VisitGlobalVar( ILGlobalVar* node )
+	virtual void VisitGlobalVar( ILGlobalVar* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
 	}
-	virtual void VisitHeapVar( ILHeapVar* node )
+	virtual void VisitHeapVar( ILHeapVar* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
 	}
-	virtual void VisitArrayElementVar( ILArrayElementVar* node )
+	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
 	{
 		node->SetType( type() );
 
@@ -264,16 +257,17 @@ public:
 		PopType();
 	}
 	virtual void VisitTempVar( ILTempVar* node )
+	virtual void VisitTempVar( ILTempVar* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
 	}
-	virtual void VisitLoad( ILLoad* node )
+	virtual void VisitLoad( ILLoad* node ) override
 	{
 		Visit( node->var() );
 		node->SetType( node->var()->type() );
 	}
-	virtual void VisitStore( ILStore* node )
+	virtual void VisitStore( ILStore* node ) override
 	{
 		Visit( node->var() );
 
@@ -291,22 +285,22 @@ public:
 		Visit( node->val() );
 		PopType();
 	}
-	virtual void VisitJumpCond( ILJumpCond* node )
+	virtual void VisitJumpCond( ILJumpCond* node ) override
 	{
 		Visit( node->condition() );
 	}
-	virtual void VisitSwitch( ILSwitch* node ) {}
-	virtual void VisitCall( ILCall* node )
+	virtual void VisitSwitch( ILSwitch* node ) override {}
+	virtual void VisitCall( ILCall* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
 	}
-	virtual void VisitNative( ILNative* node )
+	virtual void VisitNative( ILNative* node ) override
 	{
 		if( !node->type() )
 			node->SetType( type() );
 	}
-	virtual void VisitReturn( ILReturn* node )
+	virtual void VisitReturn( ILReturn* node ) override
 	{
 		if( node->value() )
 		{

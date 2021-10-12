@@ -14,10 +14,10 @@ Structurizer::Structurizer( ILControlFlowGraph* cfg )
 		next = curr->Next();
 	}
 
-	loop_heads_.resize( cfg->num_blocks(), nullptr );
-	loop_latch_.resize( cfg->num_blocks(), nullptr );
-	if_follow_.resize( cfg->num_blocks(), nullptr );
-	statements_.resize( cfg->num_blocks(), nullptr );
+	loop_heads_.resize( cfg->max_id() + 1, nullptr );
+	loop_latch_.resize( cfg->max_id() + 1, nullptr );
+	if_follow_.resize( cfg->max_id() + 1, nullptr );
+	statements_.resize( cfg->max_id() + 1, nullptr );
 }
 
 Statement* Structurizer::Transform()
