@@ -14,7 +14,8 @@ private:
 	{
 		BASIC,
 		BREAK,
-		CONTINUE
+		CONTINUE,
+		LATCH
 	};
 	struct Scope
 	{
@@ -37,14 +38,19 @@ private:
 
 	Statement*& StatementForBlock( ILBlock* bb ) { return statements_[bb->id()]; }
 
-	Statement* CreateStatement( ILBlock* bb, ILBlock* loop_latch );
-	Statement* CreateLoopStatement( ILBlock* bb, ILBlock* loop_latch );
-	Statement* CreateNonLoopStatement( ILBlock* bb, ILBlock* loop_latch );
+	Statement* CreateStatement( ILBlock* bb );
+	Statement* CreateLoopStatement( ILBlock* bb );
+	Statement* CreateNonLoopStatement( ILBlock* bb );
+	Statement* CreateDoWhileStatement( ILBlock* head, ILBlock* latch );
+	Statement* CreateEndlessStatement( ILBlock* head, ILBlock* latch );
+	Statement* CreateWhileStatement( ILBlock* head, ILBlock* latch );
+	Statement* CreateIfStatement( ILBlock* bb );
+	Statement* CreateSwitchStatement( ILBlock* bb, ILSwitch* switch_node );
 
 	void PushScope( ILBlock* follow, ScopeType type ) { scope_stack_.emplace_back( follow, type ); }
 	void PopScope() { scope_stack_.pop_back(); }
 	const Scope* FindInOuterScope( ILBlock* block ) const;
-	bool FindSameTypeScopeAfter( const Scope* scope ) const;
+	bool CanEmitBreakOrContinue( const Scope* scope ) const;
 
 	ILControlFlowGraph* cfg() { return derived_[0]; }
 private:

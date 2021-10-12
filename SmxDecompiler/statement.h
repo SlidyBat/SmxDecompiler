@@ -7,6 +7,7 @@ enum class StatementType
 {
 	BASIC,
 	IF,
+	ENDLESS,
 	WHILE,
 	DO_WHILE,
 	SWITCH,
@@ -17,6 +18,8 @@ enum class StatementType
 
 class BasicStatement;
 class IfStatement;
+class DoWhileStatement;
+class EndlessStatement;
 class WhileStatement;
 class SwitchStatement;
 class ContinueStatement;
@@ -28,6 +31,8 @@ class StatementVisitor
 public:
 	virtual void VisitBasicStatement( BasicStatement* stmt ) = 0;
 	virtual void VisitIfStatement( IfStatement* stmt ) = 0;
+	virtual void VisitDoWhileStatement( DoWhileStatement* stmt ) = 0;
+	virtual void VisitEndlessStatement( EndlessStatement* stmt ) = 0;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) = 0;
 	virtual void VisitSwitchStatement( SwitchStatement* stmt ) = 0;
 	virtual void VisitContinueStatement( ContinueStatement* stmt ) = 0;
@@ -108,6 +113,39 @@ private:
 	ILNode* condition_;
 	Statement* then_branch_;
 	Statement* else_branch_;
+};
+
+class EndlessStatement : public Statement
+{
+public:
+	EndlessStatement( Statement* body, Statement* next ) :
+		Statement( StatementType::ENDLESS, next ),
+		body_( body )
+	{}
+
+	Statement* body() { return body_; }
+
+	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitEndlessStatement( this ); }
+private:
+	Statement* body_;
+};
+
+class DoWhileStatement : public Statement
+{
+public:
+	DoWhileStatement( ILNode* condition, Statement* body, Statement* next ) :
+		Statement( StatementType::WHILE, next ),
+		condition_( condition ),
+		body_( body )
+	{}
+
+	ILNode* condition() { return condition_; }
+	Statement* body() { return body_; }
+
+	virtual void Accept( StatementVisitor* visitor ) override { visitor->VisitDoWhileStatement( this ); }
+private:
+	ILNode* condition_;
+	Statement* body_;
 };
 
 class WhileStatement : public Statement

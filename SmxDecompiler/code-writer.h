@@ -15,6 +15,8 @@ public:
 
 	virtual void VisitBasicStatement( BasicStatement* stmt ) override;
 	virtual void VisitIfStatement( IfStatement* stmt ) override;
+	virtual void VisitDoWhileStatement( DoWhileStatement* stmt ) override;
+	virtual void VisitEndlessStatement( EndlessStatement* stmt ) override;
 	virtual void VisitWhileStatement( WhileStatement* stmt ) override;
 	virtual void VisitSwitchStatement( SwitchStatement* stmt ) override;
 	virtual void VisitContinueStatement( ContinueStatement* stmt ) override;
@@ -28,6 +30,7 @@ public:
 	virtual void VisitGlobalVar( ILGlobalVar* node ) override;
 	virtual void VisitHeapVar( ILHeapVar* node ) override;
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override;
+	virtual void VisitFieldVar( ILFieldVar* node ) override;
 	virtual void VisitTempVar( ILTempVar* node ) override;
 	virtual void VisitLoad( ILLoad* node ) override;
 	virtual void VisitStore( ILStore* node ) override;

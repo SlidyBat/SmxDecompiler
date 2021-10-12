@@ -37,7 +37,8 @@ void CodeWriter::VisitIfStatement( IfStatement* stmt )
 	code_ << Tabs() << "{\n";
 	Indent();
 	in_else_if_ = false;
-	Visit( stmt->then_branch() );
+	if( stmt->then_branch() )
+		Visit( stmt->then_branch() );
 	Dedent();
 	code_ << Tabs() << "}\n";
 	if( stmt->else_branch() )
@@ -63,14 +64,53 @@ void CodeWriter::VisitIfStatement( IfStatement* stmt )
 	in_else_if_ = old;
 }
 
+void CodeWriter::VisitDoWhileStatement( DoWhileStatement* stmt )
+{
+	code_ << Tabs() << "do\n";
+	code_ << Tabs() << "{\n";
+	if( stmt->body() )
+	{
+		Indent();
+		Visit( stmt->body() );
+		Dedent();
+	}
+	code_ << Tabs() << "} while (" << Build( stmt->condition() ) << ");\n";
+}
+
+void CodeWriter::VisitEndlessStatement( EndlessStatement* stmt )
+{
+	code_ << Tabs() << "while (true)";
+	if( stmt->body() )
+	{
+		code_ << '\n';
+		code_ << Tabs() << "{\n";
+		Indent();
+		Visit( stmt->body() );
+		Dedent();
+		code_ << Tabs() << "}\n";
+	}
+	else
+	{
+		code_ << ";\n";
+	}
+}
+
 void CodeWriter::VisitWhileStatement( WhileStatement* stmt )
 {
-	code_ << Tabs() << "while (" << Build( stmt->condition() ) << ")\n";
-	code_ << Tabs() << "{\n";
-	Indent();
-	Visit( stmt->body() );
-	Dedent();
-	code_ << Tabs() << "}\n";
+	code_ << Tabs() << "while (" << Build( stmt->condition() ) << ")";
+	if( stmt->body() )
+	{
+		code_ << '\n';
+		code_ << Tabs() << "{\n";
+		Indent();
+		Visit( stmt->body() );
+		Dedent();
+		code_ << Tabs() << "}\n";
+	}
+	else
+	{
+		code_ << ";\n";
+	}
 }
 
 void CodeWriter::VisitSwitchStatement( SwitchStatement* stmt )
