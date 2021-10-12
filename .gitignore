@@ -1,3 +1,4 @@
 .vs
 build
 *.vcxproj.user
+*.smx
