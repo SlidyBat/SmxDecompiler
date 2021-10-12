@@ -264,7 +264,7 @@ SmxFunction* SmxFile::FindFunctionById( cell_t id )
     if( id & 1 )
     {
         id >>= 1;
-        if( id >= num_functions() )
+        if( id >= (cell_t)num_functions() )
             return nullptr;
         return &functions_[id];
     }
@@ -372,10 +372,11 @@ void SmxFile::ReadPublics( const char* name, size_t offset, size_t size )
     for( size_t i = 0; i < row_count; i++ )
     {
         SmxFunction func;
-        func.name = names_ + rows[i].name;
+        func.raw_name = names_ + rows[i].name;
+        func.name = func.raw_name;
         func.pcode_start = rows[i].address;
         // No pcode_end for the .publics section, just set it to end of .code section
-        func.pcode_end = code_size();
+        func.pcode_end = (cell_t)code_size();
 
         // Public functions have just their name
         // Non-public functions are prefixed with `.<address>.`
@@ -633,7 +634,7 @@ void SmxFile::ReadDbgMethods( const char* name, size_t offset, size_t size )
         // Now that we have locals info, fill in names in signatures
         for( size_t arg = 0; arg < func->signature.nargs; arg++ )
         {
-            SmxVariable* arg_local = func->FindLocalByStackOffset( arg * 4 + 12 );
+            SmxVariable* arg_local = func->FindLocalByStackOffset( (int)arg * 4 + 12 );
             if( !arg_local )
                 continue;
             assert( arg_local->vclass == SmxVariableClass::ARG );
