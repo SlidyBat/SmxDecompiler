@@ -291,7 +291,6 @@ void CodeWriter::VisitHeapVar( ILHeapVar* node )
 
 void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )
 {
-	std::string index;
 	if( auto* constant = dynamic_cast<ILConst*>(node->index()) )
 	{
 		// Divide constant offset by size of type
@@ -304,13 +303,12 @@ void CodeWriter::VisitArrayElementVar( ILArrayElementVar* node )
 				size = 1;
 		}
 
-		index = std::to_string( constant->value() / size );
+		code_ << Build( node->base() ) << '[' << std::to_string( constant->value() / size ) << ']';
 	}
 	else
 	{
-		index = Build( node->index() );
+		code_ << Build( node->base() ) << '[' << Build( node->index() ) << ']';
 	}
-	code_ << Build( node->base() ) << '[' << index << ']';
 }
 
 void CodeWriter::VisitFieldVar( ILFieldVar* node )

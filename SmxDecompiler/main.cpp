@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 #include "optparse.h"
 #include "smx-file.h"
 #include "smx-disasm.h"
@@ -67,12 +68,12 @@ int main( int argc, const char* argv[] )
 		typer.PopulateTypes( *ilcfg );
 
 		CodeFixer fixer( smx );
-		typer.PopulateTypes( *ilcfg );
-		fixer.ApplyFixes( *ilcfg );
-		typer.PropagateTypes( *ilcfg );
-		fixer.ApplyFixes( *ilcfg );
-		typer.PropagateTypes( *ilcfg );
-		fixer.ApplyFixes( *ilcfg );
+		for( int i = 0; i < 3; i++ )
+		{
+			typer.PopulateTypes( *ilcfg );
+			fixer.ApplyFixes( *ilcfg );
+			typer.PropagateTypes( *ilcfg );
+		}
 
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();

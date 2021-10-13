@@ -2,6 +2,108 @@
 
 #include "il.h"
 
+// Multidim arrays are accessed a bit oddly
+// The compiler will generate "indirection vectors" for the first dimension
+// of the array, which contains an offset to the actual data. This pass will
+// try to fix that up so that they're accessed as normally expected.
+//
+// Before:
+//  `(arr[x] + &arr[x])[y] = z`
+// After:
+//  `arr[x][y] = z`
+//
+class FixMultidimArrays : public RecursiveILVisitor
+{
+public:
+	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
+	{
+		RecursiveILVisitor::VisitArrayElementVar( node );
+
+		ILNode* base;
+		ILNode* index;
+		if( !GetBaseAndIndex( node->base(), &base, &index ) )
+			return;
+
+		if( auto* load = dynamic_cast<ILLoad*>( base ) )
+			base = load->var();
+		if( auto* load = dynamic_cast<ILLoad*>( index ) )
+			index = load->var();
+
+		auto* iv_val = dynamic_cast<ILArrayElementVar*>( base );
+		if( !iv_val )
+			return;
+
+		ILNode* arr = index;
+		GetBaseAndIndex( arr, &arr, nullptr );
+
+		if( !AreEquivalentAddresses( iv_val->base(), arr ) )
+			return;
+
+		node->base()->ReplaceUsesWith( iv_val );
+	}
+private:
+	bool GetBaseAndIndex( ILNode* node, ILNode** base, ILNode** index )
+	{
+		if( auto* binary = dynamic_cast<ILBinary*>( node ) )
+		{
+			if( binary->op() != ILBinary::ADD )
+				return false;
+			if( base )
+				*base = binary->left();
+			if( index )
+				*index = binary->right();
+			return true;
+		}
+		else if( auto* arr = dynamic_cast<ILArrayElementVar*>( node ) )
+		{
+			if( base )
+				*base = arr->base();
+			if( index )
+				*index = arr->index();
+			return true;
+		}
+
+		return false;
+	}
+	bool AreEquivalentAddresses( ILNode* a, ILNode* b )
+	{
+		cell_t addr_a, addr_b;
+		if( GetEffectiveAddress( a, &addr_a ) && GetEffectiveAddress( b, &addr_b ) )
+		{
+			return addr_a == addr_b;
+		}
+		return false;
+	}
+	bool GetEffectiveAddress( ILNode* node, cell_t* addr )
+	{
+		if( auto* global = dynamic_cast<ILGlobalVar*>( node ) )
+		{
+			*addr = global->addr();
+			return true;
+		}
+		if( auto* constant = dynamic_cast<ILConst*>( node ) )
+		{
+			*addr = constant->value();
+			return true;
+		}
+		if( auto* local = dynamic_cast<ILLocalVar*>( node ) )
+		{
+			return local->stack_offset();
+		}
+		if( auto* heap = dynamic_cast<ILHeapVar*>( node ) )
+		{
+			return heap->addr();
+		}
+		if( auto* tmp = dynamic_cast<ILTempVar*>( node ) )
+		{
+			return tmp->index();
+		}
+
+		assert( !"Unhandled variable type" );
+		return false;
+	}
+};
+
 // Sometimes globals are referenced by their constant address.
 // To the lifter, this looks like just a regular constant, but
 // it should be interpreted as a variable.
@@ -16,6 +118,8 @@ class FixConstGlobals : public RecursiveILVisitor
 public:
 	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
 	{
+		RecursiveILVisitor::VisitArrayElementVar( node );
+
 		if( auto* constant = dynamic_cast<ILConst*>(node->base()) )
 		{
 			auto* var = new ILGlobalVar( constant->value() );
@@ -42,6 +146,8 @@ class FixArrays : public RecursiveILVisitor
 public:
 	virtual void VisitLoad( ILLoad* node ) override
 	{
+		RecursiveILVisitor::VisitLoad( node );
+
 		const SmxVariableType* type = node->var()->type();
 		
 		// Not much we can do without type information at this stage, just bail
@@ -69,6 +175,8 @@ public:
 	}
 	virtual void VisitStore( ILStore* node ) override
 	{
+		RecursiveILVisitor::VisitStore( node );
+
 		const SmxVariableType* type = node->var()->type();
 
 		// Not much we can do without type information at this stage, just bail
@@ -264,11 +372,14 @@ public:
 
 void CodeFixer::ApplyFixes( ILControlFlowGraph& cfg ) const
 {
-	FixConstGlobals fix_const_globals;
-	VisitAllNodes( cfg, fix_const_globals );
-
 	FixArrays arrays;
 	VisitAllNodes( cfg, arrays );
+	
+	FixMultidimArrays multidim_arrays;
+	VisitAllNodes( cfg, multidim_arrays );
+
+	FixConstGlobals fix_const_globals;
+	VisitAllNodes( cfg, fix_const_globals );
 
 	ReplaceFloatNatives replace_float_natives( *smx_ );
 	VisitAllNodes( cfg, replace_float_natives );

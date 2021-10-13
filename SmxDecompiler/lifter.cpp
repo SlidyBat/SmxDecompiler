@@ -1014,7 +1014,7 @@ ILVar* PcodeLifter::GetVar( ILNode* node ) const
 	{
 		if( add->op() == ILBinary::ADD )
 		{
-			node = new ILArrayElementVar( add->right(), add->left() );
+			node = new ILArrayElementVar( add->left(), add->right() );
 			add->ReplaceUsesWith( node );
 		}
 	}
