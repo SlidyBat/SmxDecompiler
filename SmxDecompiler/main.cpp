@@ -14,7 +14,7 @@
 int main( int argc, const char* argv[] )
 {
 	OptParse args;
-	args.AddArgOption( "function", 'F' )
+	args.AddArgOption( "function", 'f' )
 		.AddFlagOption( "no-globals", 'g' )
 		.AddFlagOption( "assembly", 'a' )
 		.AddFlagOption( "il", 'i' );
@@ -27,6 +27,13 @@ int main( int argc, const char* argv[] )
 			<< " [--function/-f <function>] [--no-globals/-g] [--assembly/-a] [--il/-i] <filename>\n";
 		return 1;
 	}
+
+	if( !std::filesystem::exists( args.GetArg( 0 ) ) )
+	{
+		std::cout << "Could not open file " << args.GetArg( 0 ) << std::endl;
+		return 1;
+	}
+
 	SmxFile smx( args.GetArg( 0 ).c_str() );
 	
 	if( !args["no-globals"] )
@@ -35,7 +42,7 @@ int main( int argc, const char* argv[] )
 		{
 			SmxVariable& var = smx.global( i );
 			CodeWriter writer( smx, "" );
-			std::cout << writer.BuildVarDecl( var.name, &var.type ) << "\n";
+			std::cout << writer.BuildVarDecl( var.name, &var.type ) << ";\n";
 		}
 		std::cout << std::endl;
 	}
