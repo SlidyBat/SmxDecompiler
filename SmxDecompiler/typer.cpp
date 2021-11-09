@@ -361,6 +361,36 @@ public:
 	}
 };
 
+class StringFinder : public RecursiveILVisitor
+{
+public:
+	StringFinder( const SmxFile& smx ) : smx_( &smx )
+	{
+		str_type_ = new SmxVariableType;
+		str_type_->tag = SmxVariableType::CHAR;
+		auto dims = new int[1];
+		dims[0] = 0;
+		str_type_->dims = dims;
+		str_type_->dimcount = 1;
+	}
+
+	virtual void VisitConst( ILConst* node )
+	{
+		if( node->type() )
+			return;
+
+		if( node->value() < 0x8e4 || node->value() >= smx_->data_size() )
+			return;
+
+		char* data = reinterpret_cast<char*>(smx_->data( (size_t)node->value() ));
+		if( data[0] != 0 && data[-1] == 0 )
+			node->SetType( str_type_ );
+	}
+private:
+	const SmxFile* smx_;
+	SmxVariableType* str_type_;
+};
+
 void Typer::PopulateTypes( ILControlFlowGraph& cfg )
 {
 	cell_t pc = cfg.Entry().pc();
@@ -370,6 +400,9 @@ void Typer::PopulateTypes( ILControlFlowGraph& cfg )
 
 	StructFinder struct_finder;
 	VisitAllNodes( cfg, struct_finder );
+
+	StringFinder string_finder( *smx_ );
+	VisitAllNodes( cfg, string_finder );
 }
 
 void Typer::FillSmxVars( ILControlFlowGraph& cfg, const SmxFunction* func )
