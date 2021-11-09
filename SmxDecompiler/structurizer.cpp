@@ -455,10 +455,10 @@ Statement* Structurizer::CreateSwitchStatement( ILBlock* bb, ILSwitch* switch_no
 
 const Structurizer::Scope* Structurizer::FindInOuterScope( ILBlock* block ) const
 {
-	for( const Scope& scope : scope_stack_ )
+	for( int i = (int)scope_stack_.size() - 1; i >= 0; i-- )
 	{
-		if( scope.follow == block )
-			return &scope;
+		if( scope_stack_[i].follow == block )
+			return &scope_stack_[i];
 	}
 	return nullptr;
 }
