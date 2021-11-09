@@ -421,6 +421,8 @@ Statement* Structurizer::CreateIfStatement( ILBlock* bb )
 Statement* Structurizer::CreateSwitchStatement( ILBlock* bb, ILSwitch* switch_node )
 {
 	ILBlock* follow = bb->immed_post_dominator();
+	if( follow == bb )
+		follow = nullptr;
 
 	// This is intentionally not BREAK, sp has no fall-through on cases so the break is implicit
 	PushScope( follow, ScopeType::BASIC );
