@@ -68,6 +68,7 @@
     <ClCompile Include="typer.cpp" />
     <ClCompile Include="code-fixer.cpp" />
     <ClCompile Include="il.cpp" />
+    <ClCompile Include="decompiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="third_party\zlib\crc32.h">
@@ -118,5 +119,6 @@
     <ClInclude Include="typer.h" />
     <ClInclude Include="code-fixer.h" />
     <ClInclude Include="optparse.h" />
+    <ClInclude Include="decompiler.h" />
   </ItemGroup>
 </Project>

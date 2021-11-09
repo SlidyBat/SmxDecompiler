@@ -44,7 +44,7 @@ private:
 	};
 
 	std::vector<AbstractExprStack> block_stacks_;
-	size_t num_temps_;
-	AbstractExprStack* expr_stack_;
+	size_t num_temps_ = 0;
+	AbstractExprStack* expr_stack_ = nullptr;
 	cell_t heap_addr_ = 0;
 };

@@ -162,6 +162,7 @@
     <ClCompile Include="cfg.cpp" />
     <ClCompile Include="code-fixer.cpp" />
     <ClCompile Include="code-writer.cpp" />
+    <ClCompile Include="decompiler.cpp" />
     <ClCompile Include="il-cfg.cpp" />
     <ClCompile Include="il-disasm.cpp" />
     <ClCompile Include="il.cpp" />
@@ -193,6 +194,7 @@
     <ClInclude Include="cfg.h" />
     <ClInclude Include="code-fixer.h" />
     <ClInclude Include="code-writer.h" />
+    <ClInclude Include="decompiler.h" />
     <ClInclude Include="il-cfg.h" />
     <ClInclude Include="il-disasm.h" />
     <ClInclude Include="il.h" />

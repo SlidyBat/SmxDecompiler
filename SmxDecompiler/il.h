@@ -84,7 +84,7 @@ public:
 	virtual void Accept( ILVisitor* visitor ) = 0;
 private:
 	std::vector<ILNode*> uses_;
-	const SmxVariableType* type_;
+	const SmxVariableType* type_ = nullptr;
 };
 
 class ILConst : public ILNode
@@ -239,7 +239,7 @@ public:
 	SmxVariable* smx_var() const { return var_; }
 	void SetSmxVar( SmxVariable* var ) { var_ = var; }
 private:
-	SmxVariable* var_;
+	SmxVariable* var_ = nullptr;
 };
 
 class ILLocalVar : public ILVar
