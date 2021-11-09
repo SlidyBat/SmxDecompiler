@@ -903,10 +903,25 @@ void PcodeLifter::CompoundConditions() const
 				changed = true;
 			}
 
-			// 2 other cases also exist
 			// !X || Y
+			if( else_branch.num_out_edges() == 2 &&
+				else_branch.num_nodes() == 1 &&
+				else_branch.num_in_edges() == 1 &&
+				&else_branch.out_edge( 1 ) == &then_branch )
+			{
+				CompoundNotXandY( bb, else_branch, then_branch, else_branch.out_edge( 0 ) );
+				changed = true;
+			}
+
 			// !X && Y
-			// but these shouldn't be emitted by compiler
+			if( then_branch.num_out_edges() == 2 &&
+				then_branch.num_nodes() == 1 &&
+				then_branch.num_in_edges() == 1 &&
+				&then_branch.out_edge( 0 ) == &else_branch )
+			{
+				CompoundNotXorY( bb, then_branch, then_branch.out_edge( 1 ), else_branch );
+				changed = true;
+			}
 		}
 	}
 }
@@ -949,6 +964,52 @@ void PcodeLifter::CompoundXorY( ILBlock& x, ILBlock& y, ILBlock& then_branch, IL
 	x.ReplaceOutEdge( y, then_branch );
 	then_branch.ReplaceInEdge( y, x );
 	else_branch.RemoveInEdge( y );
+	ilcfg_->Remove( y );
+}
+
+void PcodeLifter::CompoundNotXorY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const
+{
+	auto* x_cond = dynamic_cast<ILJumpCond*>(x.Last());
+	auto* y_cond = dynamic_cast<ILJumpCond*>(y.Last());
+	assert( x_cond && y_cond );
+
+	y_cond->Invert();
+
+	auto* new_cond = new ILJumpCond(
+		new ILBinary( x_cond->condition(), ILBinary::AND, y_cond->condition() ),
+		&then_branch,
+		&else_branch );
+
+	new_cond->Invert();
+
+	x.Replace( x.num_nodes() - 1, new_cond );
+
+	x.ReplaceOutEdge( y, then_branch );
+	then_branch.ReplaceInEdge( y, x );
+	else_branch.ReplaceInEdge( y, x );
+	ilcfg_->Remove( y );
+}
+
+void PcodeLifter::CompoundNotXandY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const
+{
+	auto* x_cond = dynamic_cast<ILJumpCond*>(x.Last());
+	auto* y_cond = dynamic_cast<ILJumpCond*>(y.Last());
+	assert( x_cond && y_cond );
+
+	y_cond->Invert();
+
+	auto* new_cond = new ILJumpCond(
+		new ILBinary( x_cond->condition(), ILBinary::OR, y_cond->condition() ),
+		&then_branch,
+		&else_branch );
+
+	new_cond->Invert();
+
+	x.Replace( x.num_nodes() - 1, new_cond );
+
+	x.ReplaceOutEdge( y, else_branch );
+	else_branch.ReplaceInEdge( y, x );
+	then_branch.RemoveInEdge( y );
 	ilcfg_->Remove( y );
 }
 

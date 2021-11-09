@@ -20,6 +20,8 @@ private:
 	void CompoundConditions() const;
 	void CompoundXorY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const;
 	void CompoundXandY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const;
+	void CompoundNotXorY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const;
+	void CompoundNotXandY( ILBlock& x, ILBlock& y, ILBlock& then_branch, ILBlock& else_branch ) const;
 
 
 	ILLocalVar* Push( ILNode* value );

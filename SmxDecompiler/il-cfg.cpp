@@ -11,8 +11,6 @@ void ILControlFlowGraph::AddBlock( size_t id, cell_t pc )
 	stable_blocks_.clear();
 	for( ILBlock& bb : blocks_ )
 		stable_blocks_.emplace_back( &bb );
-
-	Verify();
 }
 
 ILBlock* ILControlFlowGraph::FindBlockAt( cell_t pc )
@@ -311,6 +309,7 @@ void ILControlFlowGraph::Verify()
 	// Make sure there are no dangling edges from removed blocks
 	for( ILBlock* b : stable_blocks_ )
 	{
+		assert( b == &Entry() || b->num_in_edges() );
 		for( size_t i = 0; i < b->num_in_edges(); i++ )
 		{
 			assert( std::find( stable_blocks_.begin(), stable_blocks_.end(), &b->in_edge( i ) ) != stable_blocks_.end() );
