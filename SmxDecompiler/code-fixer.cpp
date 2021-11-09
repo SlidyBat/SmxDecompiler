@@ -528,7 +528,7 @@ void CodeFixer::RemoveTmpLocalVars( ILBlock& bb ) const
 			if( local_var->smx_var() )
 				continue;
 
-			if( !local_var->value() || local_var->num_uses() > 1 )
+			if( !local_var->value() || local_var->num_uses() != 1 )
 				continue;
 
 			local_var->ReplaceUsesWith( local_var->value() );
@@ -539,7 +539,7 @@ void CodeFixer::RemoveTmpLocalVars( ILBlock& bb ) const
 			if( tmp_var->smx_var() )
 				continue;
 
-			if( !tmp_var->value() || tmp_var->num_uses() > 1 )
+			if( !tmp_var->value() || tmp_var->num_uses() != 1 )
 				continue;
 
 			tmp_var->ReplaceUsesWith( tmp_var->value() );
@@ -693,7 +693,8 @@ void CodeFixer::FixShortCircuitConditions( ILControlFlowGraph& cfg, ILBlock& bb 
 	real_cond_block->Remove( tmp );
 	for( int i = (int)tmp->num_uses() - 1; i >= 0; i-- )
 	{
-		if( auto* store = dynamic_cast<ILStore*>( tmp->use( i ) ) )
+		auto* store = dynamic_cast<ILStore*>(tmp->use( i ));
+		if( store && store->var() == tmp )
 		{
 			tmp->RemoveUse( i );
 			store->ReplaceUsesWith( node->condition() );
