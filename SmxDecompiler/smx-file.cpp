@@ -239,7 +239,7 @@ SmxFunction* SmxFile::FindFunctionByName( const char* func_name )
 {
     for( SmxFunction& func : functions_ )
     {
-        if( strcmp( func.name, func_name ) == 0 )
+        if( func.name && strcmp( func.name, func_name ) == 0 )
         {
             return &func;
         }
@@ -365,6 +365,14 @@ void SmxFile::ReadNames( const char* name, size_t offset, size_t size )
     names_ = image_.get() + offset;
 }
 
+void SmxFile::AddFunction( cell_t addr )
+{
+    SmxFunction func;
+    func.pcode_start = addr;
+    func.pcode_end = addr + 1;
+    functions_.push_back( func );
+}
+
 void SmxFile::ReadPublics( const char* name, size_t offset, size_t size )
 {
     auto* rows = (sp_file_publics_t*)(image_.get() + offset);
@@ -375,8 +383,8 @@ void SmxFile::ReadPublics( const char* name, size_t offset, size_t size )
         func.raw_name = names_ + rows[i].name;
         func.name = func.raw_name;
         func.pcode_start = rows[i].address;
-        // No pcode_end for the .publics section, just set it to end of .code section
-        func.pcode_end = (cell_t)code_size();
+        // No pcode_end for the .publics section
+        func.pcode_end = func.pcode_start + 1;
 
         // Public functions have just their name
         // Non-public functions are prefixed with `.<address>.`

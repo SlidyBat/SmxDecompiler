@@ -6,7 +6,7 @@
 class CodeWriter : public StatementVisitor, public ILVisitor
 {
 public:
-	CodeWriter( SmxFile& smx, const char* function );
+	CodeWriter( SmxFile& smx, SmxFunction* func );
 
 	std::string Build( Statement* stmt );
 	std::string BuildVarDecl( const std::string& var_name, const SmxVariableType* type );

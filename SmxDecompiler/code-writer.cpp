@@ -1,16 +1,21 @@
 #include "code-writer.h"
 
-CodeWriter::CodeWriter( SmxFile& smx, const char* function ) :
-	smx_( &smx )
-{
-	func_ = smx_->FindFunctionByName( function );
-}
+CodeWriter::CodeWriter( SmxFile& smx, SmxFunction* func ) :
+	smx_( &smx ),
+	func_( func )
+{}
 
 std::string CodeWriter::Build( Statement* stmt )
 {
+	std::string name;
+	if( func_->name )
+		name = func_->name;
+	else
+		name = "func_" + std::to_string( func_->pcode_start );
+
 	if( func_->is_public )
 		code_ << "public ";
-	code_ << BuildFuncDecl( func_->name, &func_->signature ) << '\n';
+	code_ << BuildFuncDecl( name, &func_->signature ) << '\n';
 	code_ << "{\n";
 	Indent();
 	Visit( stmt );
@@ -351,7 +356,8 @@ void CodeWriter::VisitJumpCond( ILJumpCond* node )
 
 void CodeWriter::VisitCall( ILCall* node )
 {
-	if( SmxFunction* func = smx_->FindFunctionAt( node->addr() ) )
+	SmxFunction* func = smx_->FindFunctionAt( node->addr() );
+	if( func && func->name )
 	{
 		code_ << func->name;
 	}

@@ -11,6 +11,31 @@
 #include "structurizer.h"
 #include "code-writer.h"
 
+void DiscoverFunctions( SmxFile& smx, ControlFlowGraph& cfg )
+{
+	for( size_t i = 0; i < cfg.num_blocks(); i++ )
+	{
+		BasicBlock& bb = cfg.block( i );
+		const cell_t* instr = bb.start();
+		while( instr < bb.end() )
+		{
+			auto op = (SmxOpcode)instr[0];
+			const cell_t* params = instr + 1;
+			const auto& info = SmxInstrInfo::Get( op );
+			const cell_t* next_instr = instr + info.num_params + 1;
+
+			if( op == SMX_OP_CALL )
+			{
+				cell_t func = params[0];
+				if( !smx.FindFunctionAt( func ) )
+					smx.AddFunction( func );
+			}
+
+			instr = next_instr;
+		}
+	}
+}
+
 int main( int argc, const char* argv[] )
 {
 	OptParse args;
@@ -41,7 +66,7 @@ int main( int argc, const char* argv[] )
 		for( size_t i = 0; i < smx.num_globals(); i++ )
 		{
 			SmxVariable& var = smx.global( i );
-			CodeWriter writer( smx, "" );
+			CodeWriter writer( smx, nullptr );
 			std::cout << writer.BuildVarDecl( var.name, &var.type ) << ";\n";
 		}
 		std::cout << std::endl;
@@ -50,7 +75,7 @@ int main( int argc, const char* argv[] )
 	for( size_t i = 0; i < smx.num_functions(); i++ )
 	{
 		SmxFunction& func = smx.function( i );
-		if( args["function"] && strcmp(func.name, args["function"]) != 0 )
+		if( args["function"] && func.name && strcmp( func.name, args["function"] ) != 0 )
 			continue;
 
 		if( args["assembly"] )
@@ -61,6 +86,8 @@ int main( int argc, const char* argv[] )
 
 		CfgBuilder builder( smx );
 		ControlFlowGraph cfg = builder.Build( smx.code( func.pcode_start ) );
+
+		DiscoverFunctions( smx, cfg );
 
 		PcodeLifter lifter( smx );
 		ILControlFlowGraph* ilcfg = lifter.Lift( cfg );
@@ -85,7 +112,7 @@ int main( int argc, const char* argv[] )
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();
 
-		CodeWriter writer( smx, func.name );
+		CodeWriter writer( smx, &func );
 		std::string code = writer.Build( func_stmt );
 		std::cout << code << std::endl;
 	}

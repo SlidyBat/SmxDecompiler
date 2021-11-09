@@ -86,14 +86,14 @@ struct SmxVariable
 
 struct SmxFunction
 {
-	const char* raw_name;
-	const char* name;
-	cell_t pcode_start;
-	cell_t pcode_end;
-	bool is_public;
+	const char* raw_name = nullptr;
+	const char* name = nullptr;
+	cell_t pcode_start = 0;
+	cell_t pcode_end = 0;
+	bool is_public = false;
 	SmxFunctionSignature signature;
 	size_t num_locals = 0;
-	SmxVariable* locals;
+	SmxVariable* locals = nullptr;
 
 	SmxVariable* FindLocalByStackOffset( int stack_offset )
 	{
@@ -185,6 +185,8 @@ public:
 	SmxNative*   FindNativeByIndex( size_t index );
 	SmxVariable* FindGlobalByName( const char* var_name );
 	SmxVariable* FindGlobalAt( cell_t addr );
+
+	void AddFunction( cell_t addr );
 
 	size_t num_functions() const { return functions_.size(); }
 	SmxFunction& function( size_t index ) { return functions_[index]; }

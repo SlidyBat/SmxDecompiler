@@ -31,7 +31,7 @@ std::string ILDisassembler::DisassembleCFG( const ILControlFlowGraph& cfg )
 	for( size_t i = 0; i < cfg.num_blocks(); i++ )
 	{
 		const ILBlock& bb = cfg.block( i );
-		cfg_disasm << "===== BB" << bb.id() << " =====\n";
+		cfg_disasm << "===== BB" << bb.id() << "(pc=" << std::hex << bb.pc() << ") ==== = \n";
 		for( size_t in = 0; in < bb.num_in_edges(); in++ )
 		{
 			cfg_disasm << "> Incoming edge: BB" << bb.in_edge( in ).id() << '\n';
@@ -243,7 +243,8 @@ void ILDisassembler::VisitSwitch( ILSwitch* node )
 
 void ILDisassembler::VisitCall( ILCall* node )
 {
-	if( SmxFunction* func = smx_->FindFunctionAt( node->addr() ) )
+	SmxFunction* func = smx_->FindFunctionAt( node->addr() );
+	if( func && func->name )
 	{
 		disasm_ << func->name;
 	}
