@@ -158,6 +158,13 @@ public:
 		if( !IsArrayOrEnumStructType( type ) || IsArrayOrEnumStructVar( node->var() ) )
 			return;
 
+		ILVar* var = node->var();
+		if( var->smx_var() && var->smx_var()->vclass == SmxVariableClass::ARG )
+		{
+			node->ReplaceUsesWith( var );
+			return;
+		}
+
 		ILVar* new_var = nullptr;
 		if( type->dimcount > 0 )
 		{
@@ -232,6 +239,21 @@ public:
 
 			node->ReplaceUsesWith( new ILArrayElementVar( base, index ) );
 		}
+	}
+	virtual void VisitArrayElementVar( ILArrayElementVar* node ) override
+	{
+		const SmxVariableType* base_type = node->base()->type();
+		const SmxVariableType* index_type = node->index()->type();
+
+		if( !base_type || base_type->dimcount > 0 )
+			return;
+		if( !index_type || index_type->dimcount == 0 )
+			return;
+
+		auto* swapped = new ILArrayElementVar( node->index(), node->base() );
+		node->ReplaceUsesWith( swapped );
+
+		RecursiveILVisitor::VisitArrayElementVar( swapped );
 	}
 private:
 	bool IsArrayOrEnumStructType( const SmxVariableType* type )
