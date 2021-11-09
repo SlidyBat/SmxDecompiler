@@ -120,5 +120,6 @@
     <ClInclude Include="code-fixer.h" />
     <ClInclude Include="optparse.h" />
     <ClInclude Include="decompiler.h" />
+    <ClInclude Include="decompiler-options.h" />
   </ItemGroup>
 </Project>

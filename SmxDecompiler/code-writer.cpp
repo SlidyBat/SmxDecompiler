@@ -1,8 +1,9 @@
 #include "code-writer.h"
 
-CodeWriter::CodeWriter( SmxFile& smx, SmxFunction* func ) :
+CodeWriter::CodeWriter( SmxFile& smx, SmxFunction* func, StringDetectType string_detect ) :
 	smx_( &smx ),
-	func_( func )
+	func_( func ),
+	string_detect_( string_detect )
 {}
 
 std::string CodeWriter::Build( Statement* stmt )
@@ -563,7 +564,22 @@ std::string CodeWriter::BuildFuncDecl( const std::string& func_name, const SmxFu
 std::string CodeWriter::BuildTypedValue( cell_t* val, const SmxVariableType* type )
 {
 	if( !type )
+	{
+		if( string_detect_ != StringDetectType::NONE && IsPossibleString( *val ) )
+		{
+			std::string literal = BuildStringLiteral( (char*)smx_->data( *val ) );
+			if( string_detect_ == StringDetectType::AGGRESSIVE )
+			{
+				return literal;
+			}
+			else if( string_detect_ == StringDetectType::COMMENT )
+			{
+				return std::to_string( *val ) + Comment( literal );
+			}
+		}
+
 		return std::to_string( *val );
+	}
 
 	switch( type->tag )
 	{
@@ -702,5 +718,20 @@ std::string CodeWriter::BuildEscapedChar( char c, char quote )
 	}
 
 	return lit;
+}
+
+bool CodeWriter::IsPossibleString( cell_t val ) const
+{
+	if( val < 0x8e4 || val >= smx_->data_size() )
+		return false;
+
+	// Make sure it points to the start of a string
+	char* data = reinterpret_cast<char*>( smx_->data( (size_t)val ) );
+	return data[0] != 0 && data[-1] == 0;
+}
+
+std::string CodeWriter::Comment( const std::string& contents ) const
+{
+	return " /* " + contents + " */";
 }
 

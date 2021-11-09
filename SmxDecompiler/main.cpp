@@ -4,10 +4,13 @@
 #include "smx-file.h"
 #include "decompiler.h"
 
+using namespace std::string_literals;
+
 int main( int argc, const char* argv[] )
 {
 	OptParse args;
 	args.AddArgOption( "function", 'f' )
+		.AddArgOption( "strings", 's' )
 		.AddFlagOption( "no-globals", 'g' )
 		.AddFlagOption( "assembly", 'a' )
 		.AddFlagOption( "il", 'i' );
@@ -34,6 +37,12 @@ int main( int argc, const char* argv[] )
 	options.print_il = args["il"];
 	options.print_assembly = args["assembly"];
 	options.function = args["function"];
+
+	options.string_detect = StringDetectType::NONE;
+	if( args["strings"] == "aggressive"s )
+		options.string_detect = StringDetectType::AGGRESSIVE;
+	else if( args["strings"] == "comment"s )
+		options.string_detect = StringDetectType::COMMENT;
 
 	Decompiler decompiler( smx, options );
 	decompiler.Print();

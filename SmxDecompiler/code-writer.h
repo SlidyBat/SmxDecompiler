@@ -2,11 +2,12 @@
 
 #include <sstream>
 #include "structurizer.h"
+#include "decompiler-options.h"
 
 class CodeWriter : public StatementVisitor, public ILVisitor
 {
 public:
-	CodeWriter( SmxFile& smx, SmxFunction* func );
+	CodeWriter( SmxFile& smx, SmxFunction* func, StringDetectType string_detect = StringDetectType::NONE );
 
 	std::string Build( Statement* stmt );
 	std::string BuildVarDecl( const std::string& var_name, const SmxVariableType* type );
@@ -51,6 +52,9 @@ private:
 
 	std::string BuildStringLiteral( const char* str );
 	std::string BuildEscapedChar( char c, char quote );
+
+	bool IsPossibleString( cell_t val ) const;
+	std::string Comment( const std::string& contents ) const;
 private:
 	SmxFile* smx_;
 	SmxFunction* func_;
@@ -58,4 +62,5 @@ private:
 	int indent_ = 0;
 	int level_ = 0;
 	bool in_else_if_ = false;
+	StringDetectType string_detect_;
 };

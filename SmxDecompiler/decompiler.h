@@ -1,14 +1,7 @@
 #pragma once
 
 #include "smx-file.h"
-
-struct DecompilerOptions
-{
-	bool print_globals;
-	bool print_il;
-	bool print_assembly;
-	const char* function;
-};
+#include "decompiler-options.h"
 
 class Decompiler
 {

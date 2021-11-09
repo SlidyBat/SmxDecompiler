@@ -194,6 +194,7 @@
     <ClInclude Include="cfg.h" />
     <ClInclude Include="code-fixer.h" />
     <ClInclude Include="code-writer.h" />
+    <ClInclude Include="decompiler-options.h" />
     <ClInclude Include="decompiler.h" />
     <ClInclude Include="il-cfg.h" />
     <ClInclude Include="il-disasm.h" />

@@ -69,7 +69,7 @@ void Decompiler::Print()
 		Structurizer structurizer( ilcfg );
 		Statement* func_stmt = structurizer.Transform();
 
-		CodeWriter writer( *smx_, &func );
+		CodeWriter writer( *smx_, &func, options_.string_detect );
 		std::string code = writer.Build( func_stmt );
 		std::cout << code << std::endl;
 	}
