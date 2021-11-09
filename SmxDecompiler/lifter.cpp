@@ -169,6 +169,8 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				ilbb.Add( alt );
 				break;
 			}
+			case SMX_OP_HEAP_SAVE:
+			case SMX_OP_HEAP_RESTORE:
 			case SMX_OP_FILL:
 				break;
 
@@ -413,6 +415,11 @@ void PcodeLifter::LiftBlock( BasicBlock& bb, ILBlock& ilbb )
 				alt = top->value();
 				break;
 			}
+
+			// TODO: Can get array info from this instr
+			case SMX_OP_INITARRAY_PRI:
+			case SMX_OP_INITARRAY_ALT:
+				break;
 
 			case SMX_OP_INC_PRI:
 				pri = new ILUnary( pri, ILUnary::INC );

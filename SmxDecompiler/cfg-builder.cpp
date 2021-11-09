@@ -86,7 +86,8 @@ ControlFlowGraph CfgBuilder::Build( const cell_t* entry )
 
 const cell_t* CfgBuilder::NextInstruction( const cell_t* instr ) const
 {
-	int num_params = SmxInstrInfo::Get( instr[0] ).num_params;
+	auto op = (SmxOpcode)instr[0];
+	int num_params = SmxInstrInfo::Get( op ).num_params;
 	if( num_params < 0 )
 	{
 		// This instruction shouldn't be generated
